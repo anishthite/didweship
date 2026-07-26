@@ -2304,7 +2304,7 @@
     ]
   },
   "subby": {
-    "generated_at": "2026-07-25T21:43:03.995Z",
+    "generated_at": "2026-07-26T21:48:34.929Z",
     "user_id": "2849090419",
     "handle": "subby_tech",
     "bucketed_tz": "America/Los_Angeles",
@@ -4015,6 +4015,10 @@
       },
       {
         "date": "2026-07-25",
+        "count": 1
+      },
+      {
+        "date": "2026-07-26",
         "count": 1
       }
     ]
