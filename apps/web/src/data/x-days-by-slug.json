@@ -1,6 +1,6 @@
 {
   "anish": {
-    "generated_at": "2026-08-04T22:02:50.492Z",
+    "generated_at": "2026-08-05T22:04:40.575Z",
     "user_id": "814656123055775744",
     "handle": "anishthite",
     "bucketed_tz": "America/Los_Angeles",
@@ -2340,11 +2340,15 @@
       {
         "date": "2026-08-04",
         "count": 1
+      },
+      {
+        "date": "2026-08-05",
+        "count": 1
       }
     ]
   },
   "subby": {
-    "generated_at": "2026-08-04T11:14:47.783Z",
+    "generated_at": "2026-08-05T22:04:41.534Z",
     "user_id": "2849090419",
     "handle": "subby_tech",
     "bucketed_tz": "America/Los_Angeles",
@@ -4087,6 +4091,10 @@
       },
       {
         "date": "2026-08-04",
+        "count": 1
+      },
+      {
+        "date": "2026-08-05",
         "count": 1
       }
     ]
