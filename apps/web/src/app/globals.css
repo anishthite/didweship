@@ -192,6 +192,19 @@ body {
 
 .month-control input:focus { outline: 2px solid var(--coral); outline-offset: 3px; }
 
+.sync-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sync-control .confidence { font-size: 8px; letter-spacing: .06em; }
+.sync-control .confidence::before { width: 5px; height: 5px; }
+.sync-control .text-button { font-size: 9px; }
+.sync-control .text-button:disabled { color: var(--ink-soft); cursor: wait; opacity: .55; }
+
 .text-button,
 .button-dark,
 .mode-strip button {
@@ -410,6 +423,10 @@ body {
 .audit-table td { padding: 12px 18px 12px 0; border-top: 1px solid var(--rule); color: var(--ink-soft); font-size: 12px; line-height: 1.38; vertical-align: top; }
 .audit-table td:first-child { color: var(--ink); font-weight: 700; }
 .audit-source-note { max-width: 670px; margin: 16px 0 0; color: var(--ink-soft); font-size: 11px; line-height: 1.45; }
+.audit-projects { max-width: 800px; margin: 11px 0 0; color: var(--ink-soft); font-size: 11px; line-height: 1.55; }
+.audit-projects strong { color: var(--ink); }
+.audit-projects a { color: var(--ink); text-decoration-color: var(--coral); text-underline-offset: 2px; }
+.audit-projects a:hover { color: var(--coral); }
 
 .grader-footer { margin-top: 60px; padding-top: 13px; border-top: 1px solid var(--ink); color: var(--ink-soft); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 
