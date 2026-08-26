@@ -51,6 +51,9 @@ export default async function SummaryPage() {
           <Link href="/join" className="text-[10px] uppercase tracking-widest text-nerv-text/70 hover:text-nerv-amber focus:text-nerv-amber px-2 py-2 -my-2">
             add yourself
           </Link>
+          <Link href="/grader" className="text-[10px] uppercase tracking-widest text-nerv-text/70 hover:text-nerv-amber focus:text-nerv-amber px-2 py-2 -my-2">
+            monthly grader
+          </Link>
           <ThemeToggle />
         </div>
       </header>
