@@ -9,10 +9,9 @@ import { intensity } from "../heatmap";
  * labels, no tooltips, no day-of-week alignment. The full Heatmap
  * component is still used on /[user] for the detail view.
  *
- * Mobile fit: 90 cells × 6px + 89 × 1px gap ≈ 629px. Capped at the parent
- * width with `overflow-x-auto` so it scrolls horizontally on a phone
- * narrower than that. The wrapper's max-width keeps it from spilling out
- * of the summary card.
+ * Fit: the strip is fluid — cells are 1fr grid columns at a 1:1 aspect
+ * ratio, capped at the natural `cellPx` width via max-width. Narrower
+ * container → cells shrink instead of scrolling; no scrollbars ever.
  */
 
 // CSS variables — light/dark palettes live in globals.css.
@@ -41,17 +40,19 @@ export function MiniHeatmap({
   // regardless of how long the input series is.
   const trimmed = days.slice(-windowDays);
 
+  const naturalWidth = trimmed.length * cellPx + (trimmed.length - 1) * gapPx;
+
   return (
     <div
-      className="overflow-x-auto"
-      style={{ WebkitOverflowScrolling: "touch" }}
+      className="w-full"
+      style={{ maxWidth: naturalWidth }}
       role="img"
       aria-label={`Last ${trimmed.length} days of activity`}
     >
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${trimmed.length}, ${cellPx}px)`,
+          gridTemplateColumns: `repeat(${trimmed.length}, minmax(0, 1fr))`,
           gap: `${gapPx}px`,
         }}
       >
@@ -61,8 +62,7 @@ export function MiniHeatmap({
             <div
               key={day.date}
               style={{
-                width: cellPx,
-                height: cellPx,
+                aspectRatio: "1",
                 backgroundColor: CELL_COLORS[level],
                 borderRadius: 1,
               }}

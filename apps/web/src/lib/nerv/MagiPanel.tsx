@@ -69,15 +69,9 @@ export function MagiPanel({
         </dl>
 
         {/* Center the contribution heatmap horizontally within the panel
-            column. On viewports narrower than the heatmap's intrinsic width
-            (~878px) the container scrolls horizontally so mobile users can
-            reach the older weeks instead of having them silently clipped
-            (reviewer-flagged 2026-06-01). The heatmap itself is inline-flex
-            so it intrinsically sizes to its content. */}
-        <div
-          className="flex justify-center w-full overflow-x-auto"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
+            column. No scroll port: the heatmap is vertical (~142px wide) and
+            fits every panel; body has overflow-x:hidden as the backstop. */}
+        <div className="flex justify-center w-full">
           <Heatmap days={data.days} />
         </div>
       </div>
