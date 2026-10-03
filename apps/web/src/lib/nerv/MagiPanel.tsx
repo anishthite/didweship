@@ -31,80 +31,80 @@ export function MagiPanel({
 
   return (
     <section className="min-w-0 py-2 sm:py-3">
-      <header className="mb-3 flex items-center gap-2 text-nerv-orange">
-        {icon}
-        {label === "X" ? (
-          <span className="sr-only">X</span>
-        ) : (
-          <div className="font-mono text-lg sm:text-xl uppercase tracking-[0.12em]">
-            {label}
-          </div>
-        )}
-      </header>
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-4">
+        <header className="flex items-center gap-2 text-nerv-orange">
+          {icon}
+          {label === "X" ? (
+            <span className="sr-only">X</span>
+          ) : (
+            <div className="font-mono text-lg sm:text-xl uppercase tracking-[0.12em]">
+              {label}
+            </div>
+          )}
+        </header>
 
-      <div className="flex flex-col gap-5">
         <dl className="grid grid-cols-3 divide-x divide-nerv-text/15 border-y border-nerv-text/15">
-          <div className="min-w-0 px-2 py-3 sm:px-3 sm:py-4">
-            <dt className="mb-1 text-[9px] sm:text-[10px] uppercase tracking-widest text-nerv-text/60">
+          <div className="min-w-0 px-2 py-2 sm:px-3 sm:py-3">
+            <dt className="mb-0.5 text-[8px] sm:text-[10px] uppercase tracking-widest text-nerv-text/60">
               streak
             </dt>
             <dd className="flex items-baseline gap-1 whitespace-nowrap">
-              <span className="text-2xl sm:text-3xl leading-none tabular-nums text-nerv-orange">
+              <span className="text-xl sm:text-3xl leading-none tabular-nums text-nerv-orange">
                 {data.streak_current}
               </span>
-              <span className="text-xs sm:text-sm normal-case text-nerv-text/75">days</span>
+              <span className="text-[11px] sm:text-sm normal-case text-nerv-text/75">days</span>
             </dd>
           </div>
 
-          <div className="min-w-0 px-2 py-3 sm:px-3 sm:py-4">
-            <dt className="mb-1 text-[9px] sm:text-[10px] uppercase tracking-widest text-nerv-text/60">
+          <div className="min-w-0 px-2 py-2 sm:px-3 sm:py-3">
+            <dt className="mb-0.5 text-[8px] sm:text-[10px] uppercase tracking-widest text-nerv-text/60">
               today
             </dt>
             <dd className="flex items-baseline gap-1 whitespace-nowrap">
               <span
                 className={
-                  "text-2xl sm:text-3xl leading-none tabular-nums " +
+                  "text-xl sm:text-3xl leading-none tabular-nums " +
                   (live ? "text-nerv-amber" : "text-nerv-text/80")
                 }
               >
                 {today}
               </span>
-              <span className="text-xs sm:text-sm normal-case text-nerv-text/75">{unit}</span>
+              <span className="text-[11px] sm:text-sm normal-case text-nerv-text/75">{unit}</span>
             </dd>
           </div>
 
-          <div className="min-w-0 px-2 py-3 sm:px-3 sm:py-4">
-            <dt className="mb-1 text-[9px] sm:text-[10px] uppercase tracking-widest text-nerv-text/60">
+          <div className="min-w-0 px-2 py-2 sm:px-3 sm:py-3">
+            <dt className="mb-0.5 text-[8px] sm:text-[10px] uppercase tracking-widest text-nerv-text/60">
               longest
             </dt>
             <dd className="flex items-baseline gap-1 whitespace-nowrap">
-              <span className="text-2xl sm:text-3xl leading-none tabular-nums text-nerv-text">
+              <span className="text-xl sm:text-3xl leading-none tabular-nums text-nerv-text">
                 {data.streak_longest}
               </span>
-              <span className="text-xs sm:text-sm normal-case text-nerv-text/75">days</span>
+              <span className="text-[11px] sm:text-sm normal-case text-nerv-text/75">days</span>
             </dd>
           </div>
         </dl>
+      </div>
 
-        {/* Center the contribution heatmap horizontally within the panel
-            column. No scroll port: the heatmap is vertical (~142px wide) and
-            fits every panel; body has overflow-x:hidden as the backstop. */}
-        <div className="flex justify-center w-full">
-          <Heatmap days={data.days} unit={unit} />
-        </div>
+      {/* Center the contribution heatmap horizontally within the panel
+          column. No scroll port: the heatmap is vertical (~142px wide) and
+          fits every panel; body has overflow-x:hidden as the backstop. */}
+      <div className="mt-4 flex justify-center w-full sm:mt-5">
+        <Heatmap days={data.days} unit={unit} />
+      </div>
 
-        {/* Intensity legend — without it the color scale has no meaning. */}
-        <div className="mt-2 flex items-center justify-center gap-1 text-[9px] uppercase tracking-widest text-nerv-text/60">
-          <span>less</span>
-          {([0, 1, 2, 3, 4] as const).map((l) => (
-            <span
-              key={l}
-              className="inline-block w-[10px] h-[10px]"
-              style={{ backgroundColor: `var(--cell-${l})` }}
-            />
-          ))}
-          <span>more</span>
-        </div>
+      {/* Intensity legend — without it the color scale has no meaning. */}
+      <div className="mt-3 flex items-center justify-center gap-1 text-[9px] uppercase tracking-widest text-nerv-text/60">
+        <span>less</span>
+        {([0, 1, 2, 3, 4] as const).map((l) => (
+          <span
+            key={l}
+            className="inline-block w-[10px] h-[10px]"
+            style={{ backgroundColor: `var(--cell-${l})` }}
+          />
+        ))}
+        <span>more</span>
       </div>
     </section>
   );
