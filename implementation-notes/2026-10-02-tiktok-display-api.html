@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>2026-10-02 — TikTok Display API</title>
+<meta name="task" content="Add TikTok as an optional shipping signal through the official Display API">
+<meta name="date-started" content="2026-10-02">
+<meta name="date-updated" content="2026-10-02">
+<meta name="status" content="planning">
+<meta name="blast-radius" content="medium">
+<meta name="tags" content="tiktok,display-api,oauth,github-actions,snapshot">
+<meta name="related" content="2026-10-02-x-api-migration.html,2026-05-29-socialdata-migration.html">
+<style>
+  body { font: 14px/1.45 -apple-system, system-ui, sans-serif; max-width: 880px; margin: 1.5rem auto; padding: 0 1rem; color: #111; }
+  h1 { font-size: 20px; margin: 0 0 .25rem; } h2 { font-size: 15px; margin: 1.4rem 0 .4rem; border-bottom: 1px solid #ddd; padding-bottom: .2rem; }
+  table { border-collapse: collapse; width: 100%; margin: .4rem 0 .8rem; } th, td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; vertical-align: top; } th { background: #f6f6f6; }
+  code, pre { font-family: ui-monospace, Menlo, monospace; } code { background: #f1f1f1; padding: 1px 4px; border-radius: 3px; font-size: 12.5px; } pre { background: #f6f6f6; padding: .55rem .7rem; overflow-x: auto; }
+  ul, ol { margin: .3rem 0 .8rem 1.2rem; padding: 0; } li { margin: .15rem 0; } .meta { color: #555; font-size: 12.5px; margin-bottom: .8rem; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 2px 14px; font-size: 13px; margin: .4rem 0 1rem; } .kv b { color: #444; } .blast-med { color: #b85c00; }
+  .q { border-left: 3px solid #b85c00; background: #fff8ee; padding: .4rem .7rem; margin: .4rem 0; } .q .id { color: #b85c00; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>TikTok Display API</h1>
+<p class="meta"><code>feat/tiktok-api-plan</code> · worktree <code>/Users/anishthite/workspace/commiter-tiktok-api</code> · 2026-10-02 · status <b>planning</b> · blast <span class="blast-med">medium</span></p>
+
+<h2>Summary</h2>
+<div class="kv">
+  <b>Goal</b><div>Count connected TikTok users’ public videos as an optional social shipping signal.</div>
+  <b>Source</b><div><code>POST https://open.tiktokapis.com/v2/video/list/</code> with scopes <code>user.info.basic,video.list</code>.</div>
+  <b>Refresh</b><div>GitHub Action refreshes a bundled JSON cache; Vercel never receives TikTok credentials.</div>
+  <b>Surface</b><div>Optional <code>channels.tiktok</code> panel and <code>github AND (x OR tiktok)</code> combined streak.</div>
+  <b>Schema</b><div>Add optional <code>tiktokLogin</code> and slug-keyed <code>tiktok-days-by-slug.json</code>.</div>
+  <b>Mobile</b><div>Stack panels on small screens; use up to three columns at large widths.</div>
+  <b>Open Qs</b><div>1 (<code>Q-001</code>).</div>
+</div>
+
+<h2>API contract</h2>
+<pre>POST /v2/video/list/?fields=id,create_time
+Authorization: Bearer &lt;connected-user-access-token&gt;
+Content-Type: application/json
+
+{ "max_count": 20, "cursor"?: number }
+
+{ data: { videos: [{ id: string, create_time: number }], cursor?: number, has_more?: boolean } }</pre>
+
+<h2>Algorithm</h2>
+<ol>
+  <li>Read TikTok-enabled roster entries and their mapped refresh tokens from GitHub Actions secrets.</li>
+  <li>Refresh each connected user’s access token, then call <code>/v2/user/info/</code> and require its <code>open_id</code> to match the configured slug.</li>
+  <li>Page <code>video/list</code>, bucket <code>create_time</code> through <code>NERV_TZ</code>, and replace only the overlapping recent days.</li>
+  <li>Atomically write <code>tiktok-days-by-slug.json</code>; commit it only when changed; trigger the existing deploy hook.</li>
+  <li>Render TikTok when its cache is valid; hide offline social panels; treat a day as shipped when GitHub and either live social source have activity.</li>
+</ol>
+
+<h2>Files</h2>
+<table>
+  <tr><th>Path</th><th>Kind</th><th>Delta</th></tr>
+  <tr><td><code>apps/web/src/data/tiktok-days-by-slug.json</code></td><td>new</td><td>Store slug-keyed, timezone-stamped TikTok day counts.</td></tr>
+  <tr><td><code>apps/web/src/lib/tiktok.ts</code></td><td>new</td><td>Validate and return bundled TikTok days or an offline error.</td></tr>
+  <tr><td><code>scripts/refresh-tiktok-days.ts</code></td><td>new</td><td>Refresh connected users and write the bundled cache.</td></tr>
+  <tr><td><code>.github/workflows/refresh-tiktok-days.yml</code></td><td>new</td><td>Run the refresh on <code>main</code> with TikTok secrets and commit changed cache data.</td></tr>
+  <tr><td><code>apps/web/src/config/users.ts</code></td><td>touch</td><td>Add optional <code>tiktokLogin</code>.</td></tr>
+  <tr><td><code>apps/web/src/lib/snapshot.ts</code></td><td>touch</td><td>Add TikTok channel and compose GitHub with the social OR.</td></tr>
+  <tr><td><code>apps/web/src/app/page.tsx</code></td><td>touch</td><td>Use the TikTok channel in summary tiles and shipping status.</td></tr>
+  <tr><td><code>apps/web/src/app/[user]/page.tsx</code></td><td>touch</td><td>Render a TikTok panel and include it in the last-seven-day status.</td></tr>
+  <tr><td><code>scripts/check-people.ts</code></td><td>touch</td><td>Validate the optional TikTok roster and cache shape.</td></tr>
+  <tr><td><code>.env.example</code><br><code>README.md</code><br><code>PLAN.md</code></td><td>touch</td><td>Document credentials, source behavior, and refresh ownership.</td></tr>
+</table>
+
+<h2>Decisions</h2>
+<table>
+  <tr><th>ID</th><th>Choice · Rationale</th></tr>
+  <tr><td>D-001</td><td>Use the official Display API. It lists public videos only after account consent and avoids profile scraping.</td></tr>
+  <tr><td>D-002</td><td>Keep TikTok optional and cache-backed. Missing approval, credentials, or data must not break GitHub/X pages.</td></tr>
+  <tr><td>D-003</td><td>Start with maintainer-provisioned connected accounts in Actions secrets. The existing file-backed app has no token store for self-serve OAuth.</td></tr>
+  <tr><td>D-004</td><td>Validate <code>open_id</code> before attribution. A token must never write videos under another roster slug.</td></tr>
+  <tr><td>D-005</td><td>Use <code>github AND (x OR tiktok)</code>. TikTok satisfies the social half without turning social-only days into ships.</td></tr>
+</table>
+
+<h2>Tradeoffs</h2>
+<table>
+  <tr><th>ID</th><th>Picked over Rejected · Reason</th></tr>
+  <tr><td>T-001</td><td>Connected-account API over public-profile scraping. The API is authorized and stable; scraping is not.</td></tr>
+  <tr><td>T-002</td><td>Secret-provisioned tokens over an in-app OAuth callback. The former adds no database or new runtime auth surface.</td></tr>
+</table>
+
+<h2>Open questions</h2>
+<div class="q"><span class="id">Q-001</span> · Which TikTok accounts should authorize the app? <b>Assumed: only existing tracked users.</b> Arbitrary self-serve connections require OAuth callback and server-side token storage.</div>
+
+<h2>Assumptions</h2>
+<ul>
+  <li>A-001 · The TikTok app is approved for <code>user.info.basic</code> and <code>video.list</code>; if not, the refresh workflow remains offline.</li>
+  <li>A-002 · The refresh-token rotation policy can be handled without silently losing the next refresh; if not, add a secure token-store path before enabling the schedule.</li>
+</ul>
+
+<h2>Reversibility</h2>
+<p>R-001 · <span class="blast-med">medium</span>. Remove the TikTok cache, reader, workflow, and snapshot/UI branches; GitHub+X behavior remains intact.</p>
+
+<h2>Followups</h2>
+<ul><li>L-001 · Add Login Kit callback and encrypted token storage only when users must connect TikTok from <code>/join</code>.</li></ul>
+
+<h2>Definition of done</h2>
+<ul>
+  <li>TikTok credentials stay in GitHub Actions secrets and are absent from runtime env.</li>
+  <li><code>pnpm typecheck</code>, <code>pnpm build</code>, and <code>pnpm tsx scripts/check-people.ts</code> pass.</li>
+  <li><code>SELF_TEST=1 pnpm tsx scripts/refresh-tiktok-days.ts</code> proves timezone bucketing, pagination, and merge behavior.</li>
+  <li>Missing TikTok data hides only the TikTok panel and preserves GitHub/X behavior.</li>
+</ul>
+</body>
+</html>
