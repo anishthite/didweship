@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spec — panel-labels-clarity</title>
+<meta name="task" content="Clearer channel-panel labels (what is counted, heatmap meaning, intensity legend)">
+<meta name="date-started" content="2026-10-02">
+<meta name="date-updated" content="2026-10-02">
+<meta name="status" content="ready-for-review">
+<meta name="blast-radius" content="low">
+<meta name="tags" content="ui,labels,heatmap,user-page">
+<meta name="related" content="2026-07-21-user-page-typography.html,2026-06-01-multi-user-summary.html">
+<style>
+  body { font: 14px/1.45 -apple-system, system-ui, sans-serif; max-width: 880px; margin: 1.5rem auto; padding: 0 1rem; color: #111; }
+  h1 { font-size: 20px; margin: 0 0 .25rem; }
+  h2 { font-size: 15px; margin: 1.4rem 0 .4rem; border-bottom: 1px solid #ddd; padding-bottom: .2rem; }
+  table { border-collapse: collapse; width: 100%; margin: .4rem 0 .8rem; }
+  th, td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: #f6f6f6; font-weight: 600; }
+  code { font-family: ui-monospace, Menlo, monospace; background: #f1f1f1; padding: 1px 4px; border-radius: 3px; font-size: 12.5px; }
+  ul, ol { margin: .3rem 0 .8rem 1.2rem; padding: 0; }
+  li { margin: .15rem 0; }
+  .blast-low { color: #2a7a2a; }
+  .meta { color: #555; font-size: 12.5px; margin-bottom: .8rem; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 2px 14px; font-size: 13px; margin: .4rem 0 1rem; }
+  .kv b { color: #444; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Panel labels clarity</h1>
+<p class="meta"><code>main</code> · worktree <code>/Users/anishthite/workspace/commiter</code> · 2026-10-02 · status <b>ready-for-review</b> · blast <span class="blast-low">low</span></p>
+
+<h2>Summary</h2>
+<div class="kv">
+  <b>Goal</b><div>Make it obvious what each channel panel on /[user] shows. User: "not as obvious what we are looking at, so the x and github things".</div>
+  <b>Surface</b><div><code>MagiPanel.tsx</code>, <code>Heatmap.tsx</code>, <code>[user]/page.tsx</code>.</div>
+  <b>Schema</b><div>No data schema change. Snapshot wire shape unchanged.</div>
+  <b>Open Qs</b><div>0.</div>
+</div>
+
+<h2>Files</h2>
+<table>
+  <tr><th>Path</th><th>Kind</th><th>Delta</th></tr>
+  <tr><td><code>apps/web/src/lib/nerv/MagiPanel.tsx</code></td><td>touch</td><td>Header gains "<i>unit</i> per day · one square per day" subline; less→more intensity legend under the heatmap; passes <code>unit</code> to Heatmap.</td></tr>
+  <tr><td><code>apps/web/src/lib/nerv/Heatmap.tsx</code></td><td>touch</td><td>Optional <code>unit</code> prop; tooltip now "YYYY-MM-DD · N unit" instead of a bare number.</td></tr>
+  <tr><td><code>apps/web/src/app/[user]/page.tsx</code></td><td>touch</td><td>Panel label <code>X</code> → <code>X (twitter)</code>.</td></tr>
+  <tr><td><code>implementation-notes/diagrams/panel-labels-{before,after,after-dark}.png</code></td><td>new</td><td>Before/after screenshots (also embedded in the PR body).</td></tr>
+  <tr><td><code>implementation-notes/2026-10-02-panel-labels-and-refresh-speed.html</code></td><td>new</td><td>This file.</td></tr>
+  <tr><td><code>implementation-notes/INDEX.html</code></td><td>touch</td><td>Add this task row.</td></tr>
+</table>
+
+<h2>Decisions</h2>
+<table>
+  <tr><th>ID</th><th>Choice · Rationale</th></tr>
+  <tr><td>D-001</td><td>Descriptor subline "<i>unit</i> per day · one square per day" under each panel label. The bare platform name (esp. "X") didn't say what is counted or what the heatmap cells are.</td></tr>
+  <tr><td>D-002</td><td>Unit inside heatmap tooltips ("2026-09-30 · 3 commits"). A bare number had no meaning.</td></tr>
+  <tr><td>D-003</td><td>Legend reuses the <code>--cell-N</code> CSS vars so it tracks light/dark themes for free.</td></tr>
+  <tr><td>D-004</td><td><code>unit</code> is an optional Heatmap prop; MiniHeatmap and any other consumers untouched.</td></tr>
+</table>
+
+<h2>Deviations</h2>
+<table>
+  <tr><th>ID</th><th>Planned → Actual · Why</th></tr>
+  <tr><td>X-001</td><td>Task also included "make data refresh faster". I implemented ~90d <code>since:/until:</code> window sharding for full backfills in <code>refresh-x-days.ts</code> (self-tested) and a <code>--filter commiter</code> CI install — then a concurrent session rewrote the script mid-flight to a different approach (X API v2 timeline endpoint + <code>since_id</code> incrementals + hourly cron, migrating off socialdata). Dropped the script + workflow from this PR rather than publish or race another session's WIP. Sharding patch abandoned as superseded, not merged.</td></tr>
+</table>
+
+<h2>Reversibility</h2>
+<table>
+  <tr><td>R-001</td><td>Single-commit revert; presentational only, no data or API surface changes.</td></tr>
+</table>
+
+<h2>Verification</h2>
+<ul>
+  <li><code>pnpm --filter web typecheck</code> clean (run on the working-tree variant; PR variant differs only in surrounding styling from the unmerged typography WIP).</li>
+  <li>Playwright before/after screenshots: /anish light (before/after), /subby light + dark — subline, legend, and "X (twitter)" render in both themes. Stored in <code>implementation-notes/diagrams/</code>.</li>
+</ul>
+
+<h2>Followups</h2>
+<table>
+  <tr><td>L-001</td><td>Once the concurrent <code>refresh-x-days</code> rewrite (since_id/X API v2) settles, re-apply the <code>pnpm install --filter commiter</code> CI install optimization to the refresh workflows (verified locally: 109 pkgs vs full workspace, tsx runs, ~2s warm).</td></tr>
+  <tr><td>L-002</td><td>The working tree carries ~2 months of uncommitted WIP (typography redesign, TikTok source, self-serve join) entangled with these files. This PR reconstructs clean main-based versions; the WIP still needs its own commits/PRs.</td></tr>
+</table>
+</body>
+</html>

@@ -5,7 +5,7 @@ import { intensity, toWeeksGrid } from "@/lib/heatmap";
  * Vertical heatmap, reverse-chronological.
  *   - Day-of-week initials along the top.
  *   - Month tick labels along the left (only when a new month begins).
- *   - Each cell shows a styled tooltip on hover: "YYYY-MM-DD · N".
+ *   - Each cell shows a styled tooltip on hover: "YYYY-MM-DD · N unit".
  */
 
 const CELL_PX = 14;
@@ -55,7 +55,7 @@ function buildMonthTicks(reversedWeeks: ReturnType<typeof toWeeksGrid>): (string
   return ticks;
 }
 
-export function Heatmap({ days }: { days: Day[] }) {
+export function Heatmap({ days, unit }: { days: Day[]; unit?: string }) {
   const weeks = toWeeksGrid(days).slice().reverse();
   const ticks = buildMonthTicks(weeks);
 
@@ -122,7 +122,7 @@ export function Heatmap({ days }: { days: Day[] }) {
                         "transition-opacity pointer-events-none"
                       }
                     >
-                      {cell.date} · {cell.count}
+                      {cell.date} · {cell.count}{unit ? ` ${unit}` : ""}
                     </div>
                   )}
                 </div>
