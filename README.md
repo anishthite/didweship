@@ -1,8 +1,20 @@
-# Shipping Tracker
+# Commiter
 
-Next.js/Vercel dashboard for “did we ship today?” per person. It combines GitHub contributions and X posts, with file-backed data and no database.
+**Did we ship today?** A dashboard that answers that question per person, combining GitHub contributions with X posts and optional TikTok videos into streaks and heatmaps. File-backed data, no database.
 
-## Run locally
+![Commiter dashboard — per-person streaks and heatmaps](docs/screenshot.png)
+
+## How it works
+
+A day counts as **shipped** when GitHub has activity *and* at least one configured social source (X or TikTok) has activity. If no social data is available for a user, they fall back to GitHub-only.
+
+- `/` — all tracked people at a glance
+- `/[slug]` — one person's heatmaps, streaks, and daily counts
+- `/about` — public explanation
+- `/join` — add-person form that opens a prefilled GitHub issue
+- `/api/snapshot?user=anish&days=365` — JSON snapshot; `days` clamps to 7–365
+
+## Quick start
 
 Requires Node 20+ and pnpm 9.
 
@@ -13,39 +25,33 @@ cp .env.example apps/web/.env.local
 pnpm dev   # http://localhost:3000
 ```
 
-Runtime env:
+| Variable | Required | Purpose |
+|---|---|---|
+| `GITHUB_TOKEN` | yes | GitHub PAT with `read:user` |
+| `NERV_TZ` | no | Timezone; defaults to `America/Los_Angeles` |
 
-- `GITHUB_TOKEN` — required GitHub PAT with `read:user`.
-- `NERV_TZ` — optional timezone; defaults to `America/Los_Angeles`.
+No X API key is needed at runtime — the app reads bundled X data refreshed by GitHub Actions.
 
-No X API key is needed at runtime; the app reads bundled X data.
+## Data model
 
-## App
+Everything is files in the repo; there is no database.
 
-- `/` — all tracked people.
-- `/[slug]` — one person’s heatmaps/streaks.
-- `/about` — public explanation.
-- `/join` — add-person GitHub issue form.
-- `/api/snapshot?user=anish&days=365` — JSON snapshot; `days` clamps to 7–365.
-
-A day counts as shipped when GitHub and X both have activity. If X data is missing, that user falls back to GitHub-only.
-
-## Data
-
-- People: `apps/web/src/config/users.json`
+- People roster: `apps/web/src/config/users.json`
 - X day counts: `apps/web/src/data/x-days-by-slug.json`
-- X refresh workflow: `.github/workflows/refresh-x-days.yml`
-- Full spec: `PLAN.md`
-- Decisions: `implementation-notes/`
+- TikTok day counts: `apps/web/src/data/tiktok-days-by-slug.json`
+- Refresh workflows: `.github/workflows/refresh-x-days.yml`, `refresh-tiktok-days.yml`
 
-To add someone, edit `users.json` with handles only, no `@`:
+### Adding someone
+
+Edit `users.json` with handles only, no `@`:
 
 ```json
 {
   "slug": "anish",
   "displayName": "anish",
   "githubLogin": "anishthite",
-  "xLogin": "anishthite"
+  "xLogin": "anishthite",
+  "tiktokLogin": "anishthite"
 }
 ```
 
@@ -56,14 +62,19 @@ pnpm typecheck
 pnpm tsx scripts/check-people.ts
 ```
 
-## Deploy
+## Deployment
 
-Set Vercel runtime env:
+Deploys to Vercel.
 
-- `GITHUB_TOKEN`
-- `NERV_TZ` optional
+**Vercel runtime env:** `GITHUB_TOKEN` (required), `NERV_TZ` (optional)
 
-Set GitHub Actions secrets:
+**GitHub Actions secrets:**
 
-- `SOCIALDATA_API_KEY` for X refresh
-- `VERCEL_DEPLOY_HOOK_URL` optional deploy hook
+- `X_BEARER_TOKEN` — X data refresh (official X API v2, pay-per-use ≈ $1–3/mo)
+- `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKENS_JSON`, `TIKTOK_OPEN_IDS_JSON` — TikTok refresh
+- `VERCEL_DEPLOY_HOOK_URL` — optional deploy hook after refresh
+
+## More
+
+- Full spec: [`PLAN.md`](PLAN.md)
+- Design decisions and tradeoffs: [`implementation-notes/`](implementation-notes/)
