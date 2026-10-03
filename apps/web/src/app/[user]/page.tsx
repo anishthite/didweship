@@ -148,7 +148,7 @@ export default async function UserPage({
               />
               {!xOffline && (
                 <MagiPanel
-                  label="X"
+                  label="X (twitter)"
                   unit="tweets"
                   data={snapshot.channels.twitter}
                 />

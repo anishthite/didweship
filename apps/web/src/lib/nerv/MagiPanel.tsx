@@ -25,6 +25,9 @@ export function MagiPanel({
         <div className="text-nerv-orange text-xs tracking-widest uppercase">
           {label}
         </div>
+        <div className="mt-0.5 text-[10px] uppercase tracking-widest text-nerv-text/60">
+          {unit} per day · one square per day
+        </div>
       </header>
 
       <div className="flex flex-col gap-4">
@@ -72,7 +75,20 @@ export function MagiPanel({
             column. No scroll port: the heatmap is vertical (~142px wide) and
             fits every panel; body has overflow-x:hidden as the backstop. */}
         <div className="flex justify-center w-full">
-          <Heatmap days={data.days} />
+          <Heatmap days={data.days} unit={unit} />
+        </div>
+
+        {/* Intensity legend — without it the color scale has no meaning. */}
+        <div className="mt-2 flex items-center justify-center gap-1 text-[9px] uppercase tracking-widest text-nerv-text/60">
+          <span>less</span>
+          {([0, 1, 2, 3, 4] as const).map((l) => (
+            <span
+              key={l}
+              className="inline-block w-[10px] h-[10px]"
+              style={{ backgroundColor: `var(--cell-${l})` }}
+            />
+          ))}
+          <span>more</span>
         </div>
       </div>
     </section>

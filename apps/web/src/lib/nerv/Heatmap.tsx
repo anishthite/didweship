@@ -55,7 +55,7 @@ function buildMonthTicks(reversedWeeks: ReturnType<typeof toWeeksGrid>): (string
   return ticks;
 }
 
-export function Heatmap({ days }: { days: Day[] }) {
+export function Heatmap({ days, unit }: { days: Day[]; unit?: string }) {
   const weeks = toWeeksGrid(days).slice().reverse();
   const ticks = buildMonthTicks(weeks);
 
@@ -122,7 +122,7 @@ export function Heatmap({ days }: { days: Day[] }) {
                         "transition-opacity pointer-events-none"
                       }
                     >
-                      {cell.date} · {cell.count}
+                      {cell.date} · {cell.count}{unit ? ` ${unit}` : ""}
                     </div>
                   )}
                 </div>
