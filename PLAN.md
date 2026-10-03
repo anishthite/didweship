@@ -146,7 +146,7 @@ Set in `apps/web/.env.local` for dev. Set as Vercel project env vars for prod.
 
 - **L-001** — Manual ship fallback: `POST /api/ship` + an in-dashboard button. Useful when you want to mark "yes I posted" without waiting for the next hourly refresh to ship.
 - **L-002** — Nudge mechanism: Vercel Cron at e.g. 18:00 + 23:00 PT hitting an `/api/nudge` route that pings Pushover / Resend / a Slack webhook when today is empty.
-- **L-003** — ~~Sub-daily X freshness~~ DONE 2026-07-21: official X API + hourly cron. Remaining ceiling is the Vercel rebuild per data commit; a KV-backed runtime read would remove it.
+- **L-003** — ~~Sub-daily X freshness~~ DONE 2026-10-02: official X API + hourly cron. Remaining ceiling is the Vercel rebuild per data commit; a KV-backed runtime read would remove it.
 - **L-004** — Build-time prerender wart: page is statically generated at build time with whatever data the build environment can reach. If `GITHUB_TOKEN` isn't set during the Vercel build, the SYS:FAULT branch gets baked in for up to an hour after deploy. Mitigations: set env at build, or flip `page.tsx` back to `force-dynamic` (fetch caching still works).
 
 ---

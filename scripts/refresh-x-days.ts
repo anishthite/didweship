@@ -587,7 +587,7 @@ async function processUser(target: { slug: string; handle: string }): Promise<vo
 
   // Never advance last_tweet_id unless the fetch completed fully (it threw
   // otherwise) AND we actually saw posts. Empty since_id fetches keep the
-  // old cursor — correct, there's nothing newer.
+  // old last_tweet_id — correct, there's nothing newer.
   const lastTweetId = result.newestId || existing.last_tweet_id;
 
   if (!fetch.fullBackfill && mergedDays.length < existing.days.length) {
