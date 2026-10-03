@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spec — channel-metric-strip</title>
+<meta name="task" content="Tighten per-user channel layout by grouping metrics into a connected strip">
+<meta name="date-started" content="2026-10-02">
+<meta name="date-updated" content="2026-10-02">
+<meta name="status" content="ready-for-review">
+<meta name="blast-radius" content="low">
+<meta name="tags" content="ui,layout,user-page,metrics,heatmap">
+<meta name="related" content="2026-10-02-panel-labels-and-refresh-speed.html,2026-07-21-user-page-typography.html">
+<style>body{font:14px/1.45 -apple-system,system-ui,sans-serif;max-width:880px;margin:1.5rem auto;padding:0 1rem;color:#111}h1{font-size:20px;margin:0 0 .25rem}h2{font-size:15px;margin:1.4rem 0 .4rem;border-bottom:1px solid #ddd;padding-bottom:.2rem}table{border-collapse:collapse;width:100%;margin:.4rem 0 .8rem}th,td{border:1px solid #ddd;padding:4px 8px;text-align:left;vertical-align:top}th{background:#f6f6f6}code{font-family:ui-monospace,Menlo,monospace;background:#f1f1f1;padding:1px 4px;border-radius:3px;font-size:12.5px}.meta{color:#555;font-size:12.5px;margin-bottom:.8rem}.kv{display:grid;grid-template-columns:140px 1fr;gap:2px 14px;font-size:13px;margin:.4rem 0 1rem}.kv b{color:#444}.blast-low{color:#2a7a2a}ul,ol{margin:.3rem 0 .8rem 1.2rem;padding:0}li{margin:.15rem 0}</style>
+</head>
+<body>
+<h1>Channel metric strip</h1>
+<p class="meta"><code>fix/user-layout-measure</code> · worktree <code>~/workspace/commiter-layout</code> · 2026-10-02 · status <b>ready-for-review</b> · blast <span class="blast-low">low</span></p>
+<h2>Summary</h2>
+<div class="kv">
+  <b>Goal</b><div>Make each <code>/[user]</code> channel scan as one grouped unit at desktop and mobile widths.</div>
+  <b>Surface</b><div><code>apps/web/src/app/[user]/page.tsx</code>, <code>apps/web/src/lib/nerv/MagiPanel.tsx</code>.</div>
+  <b>Mobile</b><div>Keep all three metrics on one row; labels sit above values to avoid number-label drift.</div>
+  <b>Open Qs</b><div>0.</div>
+</div>
+<h2>UI layout</h2>
+<ol>
+  <li>Keep the channel label and measurement subtitle as the section header.</li>
+  <li>Render streak, today, and longest in a three-column <code>&lt;dl&gt;</code> with shared top/bottom rules and internal dividers.</li>
+  <li>Place label above number+unit; center the existing heatmap and legend below the metric strip.</li>
+</ol>
+<h2>Files</h2>
+<table><tr><th>Path</th><th>Kind</th><th>Delta</th></tr><tr><td><code>apps/web/src/lib/nerv/MagiPanel.tsx</code></td><td>touch</td><td>Replace detached inline metrics with a connected metric strip.</td></tr><tr><td><code>apps/web/src/app/[user]/page.tsx</code></td><td>touch</td><td>Tighten hero-to-channel spacing; widen the gap between channels.</td></tr></table>
+<h2>Decisions</h2>
+<table><tr><th>ID</th><th>Choice · Rationale</th></tr><tr><td>D-001</td><td>Use shared rules and dividers over three independent cards. Preserve the quiet paper layout while making metric ownership obvious.</td></tr><tr><td>D-002</td><td>Place labels above values. Numbers no longer compete with trailing prose or disperse across the channel width.</td></tr><tr><td>D-003</td><td>Promote <code>GITHUB</code> and <code>X</code> to icon headings; remove the measurement subtitle. Channel identity reads before the metrics without redundant copy.</td></tr></table>
+<h2>Tradeoffs</h2>
+<table><tr><th>ID</th><th>Picked over Rejected · Reason</th></tr><tr><td>T-001</td><td>One metric strip over a full channel-card redesign. Fix hierarchy without adding a second visual system.</td></tr></table>
+<h2>Reversibility</h2>
+<p>R-001 · <span class="blast-low">low</span>. Revert two class-name-only component edits; no data or interaction behavior changes.</p>
+<h2>Definition of done</h2>
+<ul><li>Metric labels map unambiguously to their values at 390px and desktop widths. ✔</li><li>Final screenshots: <code>output/playwright/user-layout-headings.png</code>, <code>output/playwright/user-layout-headings-mobile.png</code>. ✔</li><li><code>pnpm --filter web typecheck</code> passes. ✔</li></ul>
+</body>
+</html>

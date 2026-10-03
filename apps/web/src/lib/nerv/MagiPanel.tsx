@@ -18,56 +18,71 @@ export function MagiPanel({
 }) {
   const today = data.today_count;
   const live = today > 0;
+  const icon =
+    label === "GITHUB" ? (
+      <svg aria-hidden="true" viewBox="0 0 16 16" className="h-5 w-5 fill-current sm:h-6 sm:w-6">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.65 7.65 0 0 1 8 4.8c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+      </svg>
+    ) : label === "X" ? (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6 fill-current sm:h-7 sm:w-7">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231L18.244 2.25Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z" />
+      </svg>
+    ) : null;
 
   return (
-    <section className="bg-transparent p-2 sm:p-3 min-w-0">
-      <header className="mb-3">
-        <div className="text-nerv-orange text-xs tracking-widest uppercase">
-          {label}
-        </div>
-        <div className="mt-0.5 text-[10px] uppercase tracking-widest text-nerv-text/60">
-          {unit} per day · one square per day
-        </div>
+    <section className="min-w-0 py-2 sm:py-3">
+      <header className="mb-3 flex items-center gap-2 text-nerv-orange">
+        {icon}
+        {label === "X" ? (
+          <span className="sr-only">X</span>
+        ) : (
+          <div className="font-mono text-lg sm:text-xl uppercase tracking-[0.12em]">
+            {label}
+          </div>
+        )}
       </header>
 
-      <div className="flex flex-col gap-4">
-        {/* All three stat blocks share one baseline; each block keeps its
-            big number, its unit, and its small caption on a single row.
-            `nowrap` on the inner row prevents the unit from wrapping under
-            the number on narrow viewports. */}
-        <dl className="flex flex-row items-baseline gap-4 sm:gap-6 flex-wrap">
-          <div className="min-w-0 flex items-baseline gap-2 flex-nowrap whitespace-nowrap">
-            <dd className="text-nerv-orange text-3xl sm:text-5xl leading-none tabular-nums">
-              {data.streak_current}
-            </dd>
-            <dt className="text-[10px] uppercase tracking-widest text-nerv-text/70">
-              day streak
+      <div className="flex flex-col gap-5">
+        <dl className="grid grid-cols-3 divide-x divide-nerv-text/15 border-y border-nerv-text/15">
+          <div className="min-w-0 px-2 py-3 sm:px-3 sm:py-4">
+            <dt className="mb-1 text-[9px] sm:text-[10px] uppercase tracking-widest text-nerv-text/60">
+              streak
             </dt>
+            <dd className="flex items-baseline gap-1 whitespace-nowrap">
+              <span className="text-2xl sm:text-3xl leading-none tabular-nums text-nerv-orange">
+                {data.streak_current}
+              </span>
+              <span className="text-xs sm:text-sm normal-case text-nerv-text/75">days</span>
+            </dd>
           </div>
 
-          <div className="min-w-0 flex items-baseline gap-2 flex-nowrap whitespace-nowrap">
-            <dd
-              className={
-                "text-3xl sm:text-5xl leading-none tabular-nums " +
-                (live ? "text-nerv-amber" : "text-nerv-text/80")
-              }
-            >
-              {today}
-            </dd>
-            <span className="text-xs sm:text-sm normal-case text-nerv-text/80">{unit}</span>
-            <dt className="text-[10px] uppercase tracking-widest text-nerv-text/70">
+          <div className="min-w-0 px-2 py-3 sm:px-3 sm:py-4">
+            <dt className="mb-1 text-[9px] sm:text-[10px] uppercase tracking-widest text-nerv-text/60">
               today
             </dt>
+            <dd className="flex items-baseline gap-1 whitespace-nowrap">
+              <span
+                className={
+                  "text-2xl sm:text-3xl leading-none tabular-nums " +
+                  (live ? "text-nerv-amber" : "text-nerv-text/80")
+                }
+              >
+                {today}
+              </span>
+              <span className="text-xs sm:text-sm normal-case text-nerv-text/75">{unit}</span>
+            </dd>
           </div>
 
-          <div className="min-w-0 flex items-baseline gap-2 flex-nowrap whitespace-nowrap">
-            <dd className="text-3xl sm:text-5xl leading-none tabular-nums text-nerv-text">
-              {data.streak_longest}
-            </dd>
-            <span className="text-xs sm:text-sm normal-case text-nerv-text/80">days</span>
-            <dt className="text-[10px] uppercase tracking-widest text-nerv-text/70">
+          <div className="min-w-0 px-2 py-3 sm:px-3 sm:py-4">
+            <dt className="mb-1 text-[9px] sm:text-[10px] uppercase tracking-widest text-nerv-text/60">
               longest
             </dt>
+            <dd className="flex items-baseline gap-1 whitespace-nowrap">
+              <span className="text-2xl sm:text-3xl leading-none tabular-nums text-nerv-text">
+                {data.streak_longest}
+              </span>
+              <span className="text-xs sm:text-sm normal-case text-nerv-text/75">days</span>
+            </dd>
           </div>
         </dl>
 
