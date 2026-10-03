@@ -1,6 +1,12 @@
 {
   "users": [
     {
+      "slug": "aditya",
+      "displayName": "aditya",
+      "githubLogin": "xydv",
+      "xLogin": "adityayaps"
+    },
+    {
       "slug": "anish",
       "displayName": "anish",
       "githubLogin": "anishthite",
