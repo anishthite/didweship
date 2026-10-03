@@ -36,6 +36,13 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: tiktok_login
+    attributes:
+      label: TikTok username
+      description: Optional. Handle only, no @. Requires TikTok API token setup before it appears.
+      placeholder: octocat
+
   - type: textarea
     id: context
     attributes:
@@ -53,6 +60,7 @@ body:
           "slug": "github-login-lowercase",
           "displayName": "name",
           "githubLogin": "github-login",
-          "xLogin": "x-login"
+          "xLogin": "x-login",
+          "tiktokLogin": "tiktok-login"
         }
         ```

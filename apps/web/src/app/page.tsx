@@ -88,12 +88,16 @@ export default async function SummaryPage() {
   );
 }
 
+function hasOnlineSocial(snapshot: Snapshot): boolean {
+  return snapshot.channels.twitter.offline !== true || snapshot.channels.tiktok.offline !== true;
+}
+
 function isShipped(snapshot: Snapshot | null): boolean {
   if (!snapshot) return false;
-  const ghToday = snapshot.channels.github.today_count;
-  const xToday = snapshot.channels.twitter.today_count;
-  const xOffline = snapshot.channels.twitter.offline === true;
-  return xOffline ? ghToday > 0 : ghToday > 0 && xToday > 0;
+  const socialToday =
+    (snapshot.channels.twitter.offline ? 0 : snapshot.channels.twitter.today_count) +
+    (snapshot.channels.tiktok.offline ? 0 : snapshot.channels.tiktok.today_count);
+  return snapshot.channels.github.today_count > 0 && (!hasOnlineSocial(snapshot) || socialToday > 0);
 }
 
 function UserCard({ card, rank }: { card: UserCardData; rank: number }) {
@@ -169,9 +173,9 @@ function UserCard({ card, rank }: { card: UserCardData; rank: number }) {
             <MiniHeatmap days={heatmapDays} windowDays={25} cellPx={8} gapPx={2} />
           </div>
 
-          {snapshot.channels.twitter.offline && (
+          {!hasOnlineSocial(snapshot) && (
             <p className="mt-2 text-[9px] uppercase tracking-widest text-nerv-text/40">
-              x offline · github-only streak
+              social feeds offline · github-only streak
             </p>
           )}
         </>
@@ -191,20 +195,15 @@ function UserCard({ card, rank }: { card: UserCardData; rank: number }) {
  */
 function deriveCombinedDays(snapshot: Snapshot) {
   const gh = snapshot.channels.github.days;
-  const tw = snapshot.channels.twitter.days;
-  if (snapshot.channels.twitter.offline) return gh;
-  if (gh.length !== tw.length) {
-    // Defensive: gh/tw days come from the same fillMissingDays(from, to)
-    // call, so this is currently unreachable. Logging makes future
-    // regressions surface in dev rather than silently degrading to GH-only.
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[summary] gh/tw day-array length mismatch for ${snapshot.user.slug}: ${gh.length} vs ${tw.length}`
-    );
-    return gh;
-  }
+  const social = [snapshot.channels.twitter, snapshot.channels.tiktok].filter(
+    (channel) => channel.offline !== true
+  );
+  if (social.length === 0 || social.some((channel) => channel.days.length !== gh.length)) return gh;
   return gh.map((d, i) => ({
     date: d.date,
-    count: d.count > 0 && (tw[i]?.count ?? 0) > 0 ? Math.min(d.count, tw[i]!.count) : 0,
+    count:
+      d.count > 0 && social.some((channel) => (channel.days[i]?.count ?? 0) > 0)
+        ? d.count
+        : 0,
   }));
 }
