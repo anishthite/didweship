@@ -2,31 +2,40 @@
 /**
  * refresh-x-days.ts — incremental refresh of apps/web/src/data/x-days-by-slug.json.
  *
- * Pulls each user's recent tweets from socialdata.tools, buckets them into
+ * Pulls each user's recent ORIGINAL posts from the official X API v2 user
+ * timeline endpoint (retweets and replies excluded), buckets them into
  * `YYYY-MM-DD` day keys in NERV_TZ, merges into the bundled JSON, and writes
- * it back. Designed to be called by .github/workflows/refresh-x-days.yml.
+ * it back. Runs hourly from .github/workflows/refresh-x-days.yml.
  *
  * Inputs (env):
- *   SOCIALDATA_API_KEY   — required. Bearer token for api.socialdata.tools.
- *   X_LOGIN              — default "anishthite". Handle without leading @.
- *   NERV_TZ              — default "America/Los_Angeles". MUST match runtime tz.
- *   BACKFILL_SINCE       — default "2024-01-01". Used only on first run when
- *                          the JSON has no existing days.
+ *   X_BEARER_TOKEN     — required. App-only bearer token from developer.x.com.
+ *                        Billing is pay-per-use (~$0.005/post returned), so the
+ *                        since_id incremental path keeps steady-state cost at
+ *                        "one tweet billed once, ever".
+ *   X_LOGIN            — optional legacy single-user override (local testing).
+ *   USERS_FILTER       — optional comma-separated slugs to refresh.
+ *   NERV_TZ            — default "America/Los_Angeles". MUST match runtime tz.
+ *   BACKFILL_SINCE     — default "2024-01-01". Only used when a slug has no
+ *                        existing days[] (first-ever fetch for that user).
  *
- * Behavior:
- *   - Caches numeric user_id in the JSON; re-resolves only when the handle changes.
- *   - Incremental: since = max(existing day) − 2 days (overlap to absorb late
- *     tweets). Full backfill on empty days[].
- *   - Within the 2-day overlap window the new fetch is authoritative (replaces
- *     existing counts). Days strictly older than the overlap window are NEVER
- *     decremented — protects against socialdata's quota-trimmed responses.
+ * Fetch modes (per user, decided from stored state):
+ *   A. last_tweet_id present → since_id incremental. Only tweets newer than
+ *      the last seen ID are returned; merge is ADDITIVE (count += new).
+ *      Each tweet is billed once. Quiet hours return 0 posts ≈ $0.
+ *   B. no last_tweet_id → start_time window (max(existing day) − 2d overlap,
+ *      or BACKFILL_SINCE on empty days[]). Merge REPLACES the overlap window,
+ *      never touches older days. Stores the newest seen ID as last_tweet_id,
+ *      so this mode runs at most once per user (migration from pre-X-API
+ *      data or first add). Note: the timeline endpoint caps at the 3200 most
+ *      recent tweets — a brand-new heavy poster gets partial history (logged).
  *
  * Exit codes:
  *   0  success (data written, or no changes needed)
- *   1  API error (auth/network/4xx/5xx from socialdata.tools)
+ *   1  API error (auth/network/4xx/5xx from api.x.com)
  *   2  validation / IO error (malformed JSON, write failure, bad env, etc.)
  */
 
+import assert from "node:assert";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -45,22 +54,21 @@ type DataFile = {
   user_id: string;
   handle: string;
   /** IANA tz used to bucket `days[]`. Stamped by this script so the runtime
-   *  can refuse to render if the consumer's tz disagrees (F10). */
+   *  can refuse to render if the consumer's tz disagrees. */
   bucketed_tz: string;
+  /** Newest tweet ID ever processed — feeds `since_id` on the next run so
+   *  each tweet is fetched (and billed) exactly once. "" until first seen. */
+  last_tweet_id: string;
   days: Day[];
 };
 
 type DataBySlugFile = Record<string, DataFile>;
 
-type UserLookupResponse = {
-  id?: number | string;
-  id_str?: string;
-  screen_name?: string;
-};
+type XUserLookup = { data?: { id?: string; username?: string } };
 
-type SearchResponse = {
-  tweets?: Array<{ tweet_created_at?: string; id_str?: string }>;
-  next_cursor?: string | null;
+type XTimelineResponse = {
+  data?: Array<{ id?: string; created_at?: string }>;
+  meta?: { next_token?: string; newest_id?: string; result_count?: number };
 };
 
 // ----- config ---------------------------------------------------------------
@@ -117,12 +125,13 @@ async function loadRoster(): Promise<RosterUser[]> {
   return out;
 }
 
-const API_BASE = "https://api.socialdata.tools";
+const API_BASE = "https://api.x.com";
 const OVERLAP_DAYS = 2;
-// Hard guard against infinite-cursor bugs. Set high enough to handle full
-// backfills (BACKFILL_SINCE=2024-01-01) for a heavy poster; if we hit this
-// AND the API still has a cursor, we throw rather than silently truncate.
-const MAX_PAGES = 500;
+// Hard guard against infinite-pagination bugs. 64 pages x 100 tweets = 6400,
+// 2x the timeline endpoint's 3200-tweet ceiling, so a full backfill that
+// legitimately ends stops long before this. Hitting it means a stuck token —
+// throw rather than silently truncate.
+const MAX_PAGES = 64;
 
 // ----- logging --------------------------------------------------------------
 
@@ -140,7 +149,7 @@ function die(code: 1 | 2, msg: string): never {
 
 // ----- env ------------------------------------------------------------------
 
-const API_KEY = process.env.SOCIALDATA_API_KEY?.trim() ?? "";
+const BEARER_TOKEN = process.env.X_BEARER_TOKEN?.trim() ?? "";
 // X_LOGIN env retained as an override for single-user runs (e.g. local
 // testing of one slug). When set + USERS_FILTER is unset, the multi-user
 // loop is bypassed in favor of the legacy single-user behavior.
@@ -153,13 +162,10 @@ const USERS_FILTER = (process.env.USERS_FILTER?.trim() || "")
   .filter(Boolean);
 const TZ = process.env.NERV_TZ?.trim() || "America/Los_Angeles";
 const BACKFILL_SINCE = (process.env.BACKFILL_SINCE?.trim() || "2024-01-01");
-// LATEST_ONLY: fetch only the most recent tweet and stamp its day as count>=1.
-// Cost per run: ~1 API call (~$0.0002). Heatmap fills out one day at a time,
-// binary signal ("tweeted that day?"). Merge is additive — never decrements.
-const LATEST_ONLY = process.env.LATEST_ONLY === "1";
+const SELF_TEST = process.env.SELF_TEST === "1";
 
-if (!API_KEY) {
-  die(2, "SOCIALDATA_API_KEY is required");
+if (!SELF_TEST && !BEARER_TOKEN) {
+  die(2, "X_BEARER_TOKEN is required (developer.x.com → project → Keys and Tokens → Bearer Token)");
 }
 if (!/^\d{4}-\d{2}-\d{2}$/.test(BACKFILL_SINCE)) {
   die(2, `BACKFILL_SINCE must be YYYY-MM-DD, got: ${BACKFILL_SINCE}`);
@@ -197,7 +203,7 @@ const isValidDayList = (v: unknown): v is Day[] => {
 
 async function apiGet<T>(path: string): Promise<T> {
   const url = `${API_BASE}${path}`;
-  // F3: retry on 429/5xx, exponential backoff 1s/4s/16s, max 3 retries.
+  // Retry on 429/5xx, exponential backoff 1s/4s/16s, max 3 retries.
   // 4xx other than 429 throw immediately (auth/bad-request — not transient).
   const maxAttempts = 4; // 1 initial attempt + 3 retries
   let lastErr: Error | null = null;
@@ -207,7 +213,7 @@ async function apiGet<T>(path: string): Promise<T> {
     try {
       res = await fetch(url, {
         headers: {
-          Authorization: `Bearer ${API_KEY}`,
+          Authorization: `Bearer ${BEARER_TOKEN}`,
           Accept: "application/json",
         },
       });
@@ -229,14 +235,16 @@ async function apiGet<T>(path: string): Promise<T> {
     if (!res.ok) {
       const status = res.status;
       const isRetryable = status === 429 || (status >= 500 && status < 600);
+      const body = await res.text().catch(() => "");
+      // 402 = out of credits (pay-per-use). Loud, non-retryable — top up at
+      // developer.x.com. Treated like any other non-retryable 4xx here; the
+      // message is what matters.
       if (!isRetryable) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`HTTP ${status} for ${path}: ${body.slice(0, 200)}`);
+        throw new Error(`HTTP ${status} for ${path}: ${body.slice(0, 300)}`);
       }
       if (attempt >= maxAttempts) {
-        const body = await res.text().catch(() => "");
         throw new Error(
-          `HTTP ${status} for ${path} after ${attempt} attempts: ${body.slice(0, 200)}`
+          `HTTP ${status} for ${path} after ${attempt} attempts: ${body.slice(0, 300)}`
         );
       }
       let waitMs = Math.pow(4, attempt - 1) * 1000; // 1s, 4s, 16s
@@ -255,28 +263,12 @@ async function apiGet<T>(path: string): Promise<T> {
       continue;
     }
 
-    // 2xx — read body as text first so a non-JSON / envelope-error body is
-    // diagnosable. F2 layer 1: refuse 200 + error envelope.
     const text = await res.text();
-    let parsed: unknown;
     try {
-      parsed = JSON.parse(text);
+      return JSON.parse(text) as T;
     } catch {
       throw new Error(`HTTP ${res.status} non-JSON body at ${path}: ${text.slice(0, 200)}`);
     }
-    if (parsed && typeof parsed === "object") {
-      const obj = parsed as Record<string, unknown>;
-      if (obj.status === "error" || obj.error !== undefined) {
-        const msg =
-          typeof obj.message === "string"
-            ? obj.message
-            : typeof obj.error === "string"
-              ? obj.error
-              : JSON.stringify(obj).slice(0, 200);
-        throw new Error(`API returned error envelope at ${path}: ${msg}`);
-      }
-    }
-    return parsed as T;
   }
   throw lastErr ?? new Error(`apiGet ${path} failed without a specific error`);
 }
@@ -289,6 +281,7 @@ function emptyData(handle: string): DataFile {
     user_id: "",
     handle,
     bucketed_tz: "",
+    last_tweet_id: "",
     days: [],
   };
 }
@@ -307,6 +300,9 @@ function parseDataFile(path: string, slug: string, v: unknown): DataFile {
     user_id: typeof obj.user_id === "string" ? obj.user_id : "",
     handle: typeof obj.handle === "string" ? obj.handle : "",
     bucketed_tz: typeof obj.bucketed_tz === "string" ? obj.bucketed_tz : "",
+    // Pre-X-API files have no last_tweet_id → "" → one start_time migration
+    // fetch, then since_id forever.
+    last_tweet_id: typeof obj.last_tweet_id === "string" ? obj.last_tweet_id : "",
     days,
   };
 }
@@ -344,7 +340,7 @@ async function saveStore(store: DataBySlugFile): Promise<void> {
     };
   }
   const json = JSON.stringify(out, null, 2) + "\n";
-  // F8: write-temp-then-rename for atomicity.
+  // Write-temp-then-rename for atomicity.
   const tmp = DATA_PATH + ".tmp";
   await writeFile(tmp, json, "utf8");
   await rename(tmp, DATA_PATH);
@@ -358,135 +354,111 @@ async function resolveUserId(handle: string, existing: DataFile): Promise<string
     return existing.user_id;
   }
   log(`looking up user_id for handle=${handle}`);
-  const u = await apiGet<UserLookupResponse>(`/twitter/user/${encodeURIComponent(handle)}`);
-  const id = u.id_str ?? (u.id != null ? String(u.id) : "");
+  const u = await apiGet<XUserLookup>(`/2/users/by/username/${encodeURIComponent(handle)}`);
+  const id = u.data?.id ?? "";
   if (!id) {
-    throw new Error(`socialdata /twitter/user/${handle} returned no id (body: ${JSON.stringify(u).slice(0, 200)})`);
+    throw new Error(`GET /2/users/by/username/${handle} returned no id (body: ${JSON.stringify(u).slice(0, 200)})`);
   }
   log(`resolved user_id=${id}`);
   return id;
 }
 
-function decideSince(existing: DataFile): { since: string; fullBackfill: boolean } {
+function decideFetch(existing: DataFile): { sinceId?: string; startTime?: string; fullBackfill: boolean } {
+  // Mode A: since_id incremental. Cheapest possible steady state.
+  if (existing.last_tweet_id) {
+    return { sinceId: existing.last_tweet_id, fullBackfill: false };
+  }
+  // Mode B: one-time start_time window (migration / first add / empty days).
   if (existing.days.length === 0) {
-    return { since: BACKFILL_SINCE, fullBackfill: true };
+    return { startTime: `${BACKFILL_SINCE}T00:00:00Z`, fullBackfill: true };
   }
   // days[] is sorted at save time; take last entry's date.
   const maxDate = existing.days.reduce((acc, d) => (d.date > acc ? d.date : acc), existing.days[0]!.date);
-  const since = addDaysISO(maxDate, -OVERLAP_DAYS);
-  return { since, fullBackfill: false };
+  return { startTime: `${addDaysISO(maxDate, -OVERLAP_DAYS)}T00:00:00Z`, fullBackfill: false };
 }
 
-async function fetchTweetDayCounts(handle: string, since: string): Promise<Map<string, number>> {
-  // socialdata's `since:` operator is inclusive on UTC date in the query;
-  // we re-bucket each tweet to NERV_TZ regardless. Any rounding noise that
-  // lands at/after `since` is absorbed by OVERLAP_DAYS; noise landing
-  // BEFORE `since` is filtered out by the F1 merge guard.
+type FetchResult = {
+  counts: Map<string, number>;
+  /** Newest tweet ID seen this fetch ("" when nothing returned). */
+  newestId: string;
+  tweets: number;
+};
+
+async function fetchTweets(userId: string, opts: { sinceId?: string; startTime?: string }): Promise<FetchResult> {
   const counts = new Map<string, number>();
-  const seenIds = new Set<string>();
-  let cursor: string | null = null;
+  let newestId = "";
+  let tweets = 0;
   let pages = 0;
-  let totalTweets = 0;
-  let lastBodyNextCursor: string | null = null;
+  let nextToken: string | undefined;
   let stoppedAtEnd = false;
 
+  const tag = opts.sinceId ? `since_id=${opts.sinceId}` : `start_time=${opts.startTime}`;
   while (pages < MAX_PAGES) {
-    const query = `from:${handle} since:${since}`;
-    const params = new URLSearchParams({ query, type: "Latest" });
-    if (cursor) params.set("cursor", cursor);
-    const path = `/twitter/search?${params.toString()}`;
+    const params = new URLSearchParams({
+      max_results: "100",
+      "tweet.fields": "created_at",
+      // "Shipped" = original posts only — no retweets, no replies.
+      exclude: "retweets,replies",
+    });
+    if (opts.sinceId) params.set("since_id", opts.sinceId);
+    else if (opts.startTime) params.set("start_time", opts.startTime!);
+    if (nextToken) params.set("pagination_token", nextToken);
+    const path = `/2/users/${encodeURIComponent(userId)}/tweets?${params.toString()}`;
     pages++;
-    log(`page ${pages}: GET ${path}`);
+    log(`page ${pages} [${tag}]: GET ${path}`);
 
-    const body = await apiGet<SearchResponse>(path);
+    const body = await apiGet<XTimelineResponse>(path);
 
-    // F2 layer 2: first page MUST have a `tweets` field. An undefined value
-    // (not just an empty array) means the API returned a non-search-shaped
-    // body that snuck past apiGet's envelope sniffer — refuse to proceed
-    // rather than silently treat it as "user posted nothing".
-    if (pages === 1 && body.tweets === undefined) {
-      throw new Error(
-        "API returned no `tweets` field on first page — refusing to proceed"
-      );
-    }
+    // meta.newest_id is the max ID across the whole result set (first page
+    // is authoritative) — use it when present so since_id advances even
+    // past multi-page fetches.
+    if (pages === 1 && body.meta?.newest_id) newestId = body.meta.newest_id;
 
-    let tweets = Array.isArray(body.tweets) ? body.tweets : [];
-    // LATEST_ONLY: keep only the most recent tweet (Latest sort puts it first)
-    // and force the loop to terminate after this page.
-    if (LATEST_ONLY) tweets = tweets.slice(0, 1);
-    let newOnPage = 0;
-    for (const tw of tweets) {
-      const id = tw.id_str ?? "";
-      if (id && seenIds.has(id)) continue;
-      if (id) seenIds.add(id);
-      const raw = tw.tweet_created_at;
+    const tweetsPage = Array.isArray(body.data) ? body.data : [];
+    for (const tw of tweetsPage) {
+      const raw = tw.created_at;
       if (typeof raw !== "string") continue;
       const t = new Date(raw);
       if (Number.isNaN(t.getTime())) continue;
       const key = dateKey(t);
       counts.set(key, (counts.get(key) ?? 0) + 1);
-      newOnPage++;
+      tweets++;
     }
-    totalTweets += newOnPage;
-    log(`  ${tweets.length} tweets returned (${newOnPage} new), days touched so far=${counts.size}`);
+    log(`  page ${pages}: ${tweetsPage.length} posts, days touched so far=${counts.size}`);
 
-    const nextCursor = body.next_cursor ?? null;
-    lastBodyNextCursor = nextCursor;
-    if (!nextCursor) {
+    nextToken = body.meta?.next_token;
+    if (!nextToken) {
       stoppedAtEnd = true;
       break;
     }
-    if (nextCursor === cursor) {
-      log(`  cursor stopped advancing, stopping pagination`);
-      stoppedAtEnd = true;
-      break;
-    }
-    if (newOnPage === 0) {
-      log(`  page had no new tweets, stopping pagination`);
-      stoppedAtEnd = true;
-      break;
-    }
-    if (LATEST_ONLY) {
-      log(`  LATEST_ONLY=1, stopping after first tweet`);
-      stoppedAtEnd = true;
-      break;
-    }
-    cursor = nextCursor;
   }
 
-  // F4: distinguish "reached end of cursor chain" from "hit MAX_PAGES with
-  // more to fetch". The latter is silent truncation and must fail loudly.
-  if (!stoppedAtEnd && lastBodyNextCursor) {
+  if (!stoppedAtEnd) {
     throw new Error(
-      `hit MAX_PAGES=${MAX_PAGES} but next_cursor still present — dataset is truncated. ` +
-        `Increase MAX_PAGES or split the backfill window.`
+      `hit MAX_PAGES=${MAX_PAGES} but next_token still present — pagination stuck or user exceeded ` +
+        `the 3200-tweet timeline ceiling. Investigate before re-running.`
     );
   }
+  if (opts.startTime && pages >= 32) {
+    // 32 pages x 100 = the 3200-tweet timeline ceiling; history older than
+    // that is silently unreachable. Only matters for first-add backfills.
+    log(`WARNING: fetched >=3200 posts — timeline endpoint ceiling reached, earlier history truncated`);
+  }
 
-  log(`pagination done: pages=${pages}, total_tweets=${totalTweets}, days_touched=${counts.size}`);
-  return counts;
+  log(`fetch done [${tag}]: pages=${pages}, posts=${tweets}, days_touched=${counts.size}`);
+  return { counts, newestId, tweets };
 }
 
 function mergeCounts(
   existing: Day[],
   fresh: Map<string, number>,
-  since: string,
-  fullBackfill: boolean,
-  latestOnly: boolean
+  mode: { additive: true } | { additive: false; since: string; fullBackfill: boolean }
 ): Day[] {
   const merged = new Map<string, number>();
   for (const d of existing) merged.set(d.date, d.count);
 
-  if (latestOnly) {
-    // Additive-only: stamp each fresh date as max(existing, fresh). Never
-    // decrements, never erases historical data. Idempotent across reruns of
-    // the same tweet (re-fetching today's latest tweet leaves today at 1).
-    // This is the mode the daily workflow runs in.
-    for (const [date, count] of fresh) {
-      const prev = merged.get(date) ?? 0;
-      merged.set(date, Math.max(prev, count));
-    }
-  } else {
+  if (mode.additive === false) {
+    const { since, fullBackfill } = mode;
     if (fullBackfill) {
       // Wipe and replace: existing was empty or we're seeding from scratch.
       merged.clear();
@@ -499,20 +471,77 @@ function mergeCounts(
     }
 
     for (const [date, count] of fresh) {
-      // F1: only write inside the overlap window. Tweets in the late-evening
-      // PT slice of the day BEFORE `since` get UTC-bucketed into the `since:`
-      // query window but re-bucketed back to a pre-since PT date — those are
-      // partial-day counts that must NOT clobber the prior full-day total.
-      // Days strictly older than `since` are never touched by the merge.
+      // Only write inside the overlap window: start_time is UTC-midnight
+      // aligned but days re-bucket to NERV_TZ, so the fetch can return
+      // partial-day counts for the PT day BEFORE `since` — those must NOT
+      // clobber the prior full-day total.
       if (fullBackfill || date >= since) {
         merged.set(date, count);
       }
+    }
+  } else {
+    // since_id mode: every fetched tweet is strictly new (the API only
+    // returns tweets after since_id), so add. Never decrements; deleted
+    // tweets keep their count — acceptable noise for a binary ship signal.
+    for (const [date, count] of fresh) {
+      merged.set(date, (merged.get(date) ?? 0) + count);
     }
   }
 
   return [...merged.entries()]
     .map(([date, count]) => ({ date, count }))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+async function runSelfTest(): Promise<void> {
+  // mergeCounts additive: adds to existing days, never decrements, creates
+  // new days, and leaves untouched days alone.
+  const base: Day[] = [
+    { date: "2026-07-18", count: 3 },
+    { date: "2026-07-19", count: 1 },
+  ];
+  const add = mergeCounts(base, new Map([["2026-07-19", 2], ["2026-07-20", 1]]), { additive: true });
+  assert.deepEqual(add, [
+    { date: "2026-07-18", count: 3 },
+    { date: "2026-07-19", count: 3 },
+    { date: "2026-07-20", count: 1 },
+  ]);
+
+  // mergeCounts overlap-replace: dates >= since replaced by fresh counts
+  // (0-count days disappear), older days untouched even when fresh has a
+  // (partial-day) count for them.
+  const rep = mergeCounts(
+    base,
+    new Map([["2026-07-18", 99], ["2026-07-20", 4]]),
+    { additive: false, since: "2026-07-19", fullBackfill: false }
+  );
+  assert.deepEqual(rep, [
+    { date: "2026-07-18", count: 3 }, // pre-since: fresh 99 ignored
+    { date: "2026-07-20", count: 4 },
+    // 2026-07-19 replaced with "no posts" → dropped, correct: the API is
+    // authoritative inside the overlap window.
+  ]);
+
+  // mergeCounts full backfill: wipes and replaces entirely.
+  const full = mergeCounts(base, new Map([["2024-03-01", 7]]), {
+    additive: false,
+    since: "2024-01-01",
+    fullBackfill: true,
+  });
+  assert.deepEqual(full, [{ date: "2024-03-01", count: 7 }]);
+
+  // decideFetch mode selection.
+  const withId = decideFetch({ ...emptyData("h"), last_tweet_id: "123" });
+  assert.equal(withId.sinceId, "123");
+  assert.equal(withId.startTime, undefined);
+  const empty = decideFetch(emptyData("h"));
+  assert.equal(empty.startTime, `${BACKFILL_SINCE}T00:00:00Z`);
+  assert.equal(empty.fullBackfill, true);
+  const migrated = decideFetch({ ...emptyData("h"), days: base });
+  assert.equal(migrated.startTime, `${addDaysISO("2026-07-19", -OVERLAP_DAYS)}T00:00:00Z`);
+  assert.equal(migrated.fullBackfill, false);
+
+  console.log("x-days refresh self-test ok");
 }
 
 // ----- run ------------------------------------------------------------------
@@ -523,11 +552,11 @@ async function processUser(target: { slug: string; handle: string }): Promise<vo
 
   const store = await loadStore();
   const existing = store[slug] ?? emptyData(handle);
-  log(`loaded ${DATA_PATH}: slug=${slug}, handle=${existing.handle || "(none)"}, days=${existing.days.length}, user_id=${existing.user_id || "(none)"}`);
+  log(`loaded ${DATA_PATH}: slug=${slug}, handle=${existing.handle || "(none)"}, days=${existing.days.length}, user_id=${existing.user_id || "(none)"}, last_tweet_id=${existing.last_tweet_id || "(none)"}`);
 
-  // Per-user failures THROW (not die/exit) so a transient socialdata error
-  // for one user doesn't poison the whole roster's commit step. main()
-  // catches and continues to the next user. Reviewer-flagged 2026-06-01.
+  // Per-user failures THROW (not die/exit) so a transient X API error for
+  // one user doesn't poison the whole roster's commit step. main() catches
+  // and continues to the next user.
   let userId: string;
   try {
     userId = await resolveUserId(handle, existing);
@@ -535,19 +564,33 @@ async function processUser(target: { slug: string; handle: string }): Promise<vo
     throw new Error(`[${slug}] user lookup failed: ${err instanceof Error ? err.message : err}`);
   }
 
-  const { since, fullBackfill } = decideSince(existing);
-  log(`since=${since}, full_backfill=${fullBackfill}`);
+  const fetch = decideFetch(existing);
+  log(`mode=${fetch.sinceId ? "since_id" : "start_time"} since_id=${fetch.sinceId ?? "-"} start_time=${fetch.startTime ?? "-"} full_backfill=${fetch.fullBackfill}`);
 
-  let counts: Map<string, number>;
+  let result: FetchResult;
   try {
-    counts = await fetchTweetDayCounts(handle, since);
+    result = await fetchTweets(userId, { sinceId: fetch.sinceId, startTime: fetch.startTime });
   } catch (err) {
-    throw new Error(`[${slug}] search pagination failed: ${err instanceof Error ? err.message : err}`);
+    throw new Error(`[${slug}] timeline fetch failed: ${err instanceof Error ? err.message : err}`);
   }
 
-  const mergedDays = mergeCounts(existing.days, counts, since, fullBackfill, LATEST_ONLY);
+  const mergedDays = result.counts.size === 0 && fetch.sinceId
+    ? existing.days // quiet window: skip merge entirely, data unchanged
+    : fetch.sinceId
+      ? mergeCounts(existing.days, result.counts, { additive: true })
+      : mergeCounts(existing.days, result.counts, {
+          additive: false,
+          // since in PT-day space, matching the overlap filter in mergeCounts.
+          since: (fetch.startTime ?? "").slice(0, 10),
+          fullBackfill: fetch.fullBackfill,
+        });
 
-  if (!fullBackfill && mergedDays.length < existing.days.length) {
+  // Never advance last_tweet_id unless the fetch completed fully (it threw
+  // otherwise) AND we actually saw posts. Empty since_id fetches keep the
+  // old since_id — correct, there's nothing newer.
+  const lastTweetId = result.newestId || existing.last_tweet_id;
+
+  if (!fetch.fullBackfill && mergedDays.length < existing.days.length) {
     throw new Error(
       `[${slug}] merged days would shrink existing data ` +
         `(${existing.days.length} → ${mergedDays.length}) — refusing to commit. ` +
@@ -558,18 +601,19 @@ async function processUser(target: { slug: string; handle: string }): Promise<vo
   const existingSorted = [...existing.days].sort((a, b) =>
     a.date < b.date ? -1 : a.date > b.date ? 1 : 0
   );
-  const daysSame =
-    JSON.stringify(existingSorted) === JSON.stringify(mergedDays);
+  const daysSame = JSON.stringify(existingSorted) === JSON.stringify(mergedDays);
   const idSame = existing.user_id === userId;
   const handleSame = existing.handle === handle;
   const tzSame = existing.bucketed_tz === TZ;
+  const tweetIdSame = existing.last_tweet_id === lastTweetId;
 
-  if (daysSame && idSame && handleSame && tzSame) {
+  const today = dateKey(new Date());
+  const todayCount = mergedDays.find((d) => d.date === today)?.count ?? 0;
+
+  if (daysSame && idSame && handleSame && tzSame && tweetIdSame) {
     log("no data changes — skipping write");
-    const today = dateKey(new Date());
-    const todayCount = mergedDays.find((d) => d.date === today)?.count ?? 0;
     process.stdout.write(
-      `ok slug=${slug} handle=${handle} user_id=${userId} since=${since} full_backfill=${fullBackfill} ` +
+      `ok slug=${slug} handle=${handle} user_id=${userId} mode=${fetch.sinceId ? "since_id" : "start_time"} ` +
         `days=${mergedDays.length} today=${today} today_count=${todayCount} skipped=1\n`
     );
     return;
@@ -580,6 +624,7 @@ async function processUser(target: { slug: string; handle: string }): Promise<vo
     user_id: userId,
     handle,
     bucketed_tz: TZ,
+    last_tweet_id: lastTweetId,
     days: mergedDays,
   };
 
@@ -590,11 +635,9 @@ async function processUser(target: { slug: string; handle: string }): Promise<vo
     throw new Error(`[${slug}] write failed: ${err instanceof Error ? err.message : err}`);
   }
 
-  const today = dateKey(new Date());
-  const todayCount = mergedDays.find((d) => d.date === today)?.count ?? 0;
   process.stdout.write(
-    `ok slug=${slug} handle=${handle} user_id=${userId} since=${since} full_backfill=${fullBackfill} ` +
-      `days=${mergedDays.length} today=${today} today_count=${todayCount}\n`
+    `ok slug=${slug} handle=${handle} user_id=${userId} mode=${fetch.sinceId ? "since_id" : "start_time"} ` +
+      `days=${mergedDays.length} today=${today} today_count=${todayCount} posts_fetched=${result.tweets}\n`
   );
 }
 
@@ -631,15 +674,15 @@ async function main(): Promise<void> {
     targets = filtered.map((u) => ({ slug: u.slug, handle: u.xLogin }));
   }
 
-  // Sequential: socialdata.tools has a shared rate limit per API key.
-  // For n=2 the wall time is fine (~10s total worst case); we can revisit
-  // bounded parallelism if the roster grows past ~5.
+  // Sequential: app-level rate limits are shared across users and n=2 is
+  // fast (~2 requests). Revisit bounded parallelism if the roster grows
+  // past ~10 (the timeline endpoint allows ~5 req/15min/app on low tiers;
+  // hourly x 2 users x 1 page fits with huge headroom).
   //
   // Partial-success policy: a per-user failure throws but main() catches
   // and continues to the next user. Only when ALL users fail do we exit
   // non-zero, which is what blocks the workflow's commit step. This way a
-  // single transient socialdata error doesn't gate everyone else's daily
-  // refresh (reviewer-flagged 2026-06-01).
+  // single transient X API error doesn't gate everyone else's refresh.
   const failures: Array<{ slug: string; err: unknown }> = [];
   for (const t of targets) {
     try {
@@ -665,6 +708,17 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  die(2, `unhandled: ${err instanceof Error ? err.stack ?? err.message : err}`);
-});
+// No top-level await (root package is CJS): dispatch async entrypoints here.
+if (SELF_TEST) {
+  runSelfTest().then(
+    () => process.exit(0),
+    (err) => {
+      console.error(err);
+      process.exit(2);
+    }
+  );
+} else {
+  main().catch((err) => {
+    die(2, `unhandled: ${err instanceof Error ? err.stack ?? err.message : err}`);
+  });
+}

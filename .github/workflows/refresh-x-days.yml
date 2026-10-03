@@ -1,15 +1,15 @@
 name: refresh-x-days
 
-# Daily refresh of apps/web/src/data/x-days-by-slug.json from socialdata.tools.
-# Iterates every user in apps/web/src/config/users.json and commits changed
-# data back to main, which triggers a Vercel rebuild.
+# Hourly refresh of apps/web/src/data/x-days-by-slug.json from the official
+# X API v2 (pay-per-use). Iterates every user in apps/web/src/config/users.json
+# and commits changed data back to main, which triggers a Vercel rebuild.
 #
-# Schedule: 09:00 UTC ≈ 01:00 PST / 02:00 PDT (the exact local time drifts
-# with US DST — both are well past midnight PT so the prior day's tweets
-# are settled by then).
+# Cadence: hourly. Billing is per-post-returned (~$0.005) and the script
+# fetches via since_id (only tweets newer than the last seen ID), so quiet
+# hours return 0 posts and cost ~$0. Estimated steady state: $1-3/mo.
 on:
   schedule:
-    - cron: "0 9,21 * * *"
+    - cron: "7 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -37,7 +37,7 @@ jobs:
 
       # F6: SHA-pin third-party action so a moving major tag can't pull in
       # a malicious commit during a run that already has GITHUB_TOKEN and
-      # SOCIALDATA_API_KEY in scope. The pinned SHA is pnpm/action-setup v3.0.0.
+      # X_BEARER_TOKEN in scope. The pinned SHA is pnpm/action-setup v3.0.0.
       # Version comes from package.json's "packageManager" field; do NOT
       # also pass `with: version:` here or pnpm/action-setup refuses both.
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda  # v3.0.0
@@ -52,16 +52,14 @@ jobs:
 
       - name: refresh x-days
         env:
-          SOCIALDATA_API_KEY: ${{ secrets.SOCIALDATA_API_KEY }}
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
           # Multi-user mode (D-030): the script reads the roster from
           # apps/web/src/config/users.json and refreshes one bundled file per
           # user (x-days-by-slug.json). Leave X_LOGIN UNSET so the legacy
           # single-user override path isn't taken.
-          # Fetch only the most recent tweet per user each run
-          # (~1 API call per user, ~$0.0002). Additive merge — historical
-          # days never decrement. Heatmap fills out one day at a time as a
-          # binary "did you ship that day?" signal.
-          LATEST_ONLY: "1"
+          # Incremental via since_id: only posts newer than the stored
+          # last_tweet_id are fetched (billed once per post, ever).
+          # Originals only: retweets/replies don't count as shipping.
         run: pnpm tsx scripts/refresh-x-days.ts
 
       - name: commit if changed
