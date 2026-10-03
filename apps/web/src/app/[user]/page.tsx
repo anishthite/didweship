@@ -116,7 +116,7 @@ export default async function UserPage({
       ) : (
         snapshot && (
           <>
-            <header className="mb-6 sm:mb-8">
+            <header className="mb-5 sm:mb-6">
               <h1 className="text-nerv-amber text-2xl sm:text-3xl lowercase font-mono tracking-tight">
                 did {displayName} ship today?
               </h1>
@@ -140,7 +140,7 @@ export default async function UserPage({
               </div>
             </header>
 
-            <div className={xOffline ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
+            <div className={xOffline ? "grid gap-6" : "grid gap-6 sm:grid-cols-2 sm:gap-8"}>
               <MagiPanel
                 label="GITHUB"
                 unit="commits"
@@ -148,7 +148,7 @@ export default async function UserPage({
               />
               {!xOffline && (
                 <MagiPanel
-                  label="X (twitter)"
+                  label="X"
                   unit="tweets"
                   data={snapshot.channels.twitter}
                 />
