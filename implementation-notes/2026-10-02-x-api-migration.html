@@ -82,7 +82,7 @@ Authorization: Bearer $X_BEARER_TOKEN          // app-only
 <h2>Files</h2>
 <table>
   <tr><th>Path</th><th>Kind</th><th>Delta</th></tr>
-  <tr><td><code>scripts/refresh-x-days.ts</code></td><td>rewrite</td><td>socialdata search+cursor+window-sharding → X API timeline+since_id; −230 LOC net.</td></tr>
+  <tr><td><code>scripts/refresh-x-days.ts</code></td><td>rewrite</td><td>socialdata search+cursor machinery → X API timeline+since_id (670 → 724 LOC; smaller API surface, same guardrails).</td></tr>
   <tr><td><code>.github/workflows/refresh-x-days.yml</code></td><td>touch</td><td>Cron <code>0 9,21</code> → <code>7 * * * *</code>; secret swap; drop <code>LATEST_ONLY</code>.</td></tr>
   <tr><td><code>.env.example</code></td><td>touch</td><td><code>SOCIALDATA_API_KEY</code> section → <code>X_BEARER_TOKEN</code>.</td></tr>
   <tr><td><code>PLAN.md</code></td><td>touch</td><td>§3 X section rewritten (hourly, endpoints, cost); L-003 marked done; env table row.</td></tr>
@@ -97,7 +97,7 @@ Authorization: Bearer $X_BEARER_TOKEN          // app-only
   <tr><td>D-003</td><td>Hourly cron (<code>7 * * * *</code>). User decision; billing is per-post so quiet hours cost ~$0; rate limit (~5 req/15min/app) fits 2 users trivially.</td></tr>
   <tr><td>D-004</td><td>Keep commit-back-to-git flow unchanged. Render path stays bundled-JSON; zero app changes; Vercel rebuild per data commit as before.</td></tr>
   <tr><td>D-005</td><td>No re-backfill at migration. Existing socialdata-built days kept; one <code>start_time</code> overlap fetch bootstraps <code>last_tweet_id</code> per user. Saves ~$30+ of pointless re-reads.</td></tr>
-  <tr><td>D-006</td><td>Delete <code>splitWindows</code>/<code>inWindow</code>/<code>mapPool</code> sharding. Timeline paginates via <code>next_token</code>; backfill is a one-time-per-user path, sequential is fine.</td></tr>
+  <tr><td>D-006</td><td>No date-window sharding in the rewrite. Timeline paginates via <code>next_token</code>; backfill is a one-time-per-user path, sequential is fine.</td></tr>
   <tr><td>D-007</td><td>Drop <code>LATEST_ONLY</code> env mode. since_id subsumes it at equal-or-lower cost.</td></tr>
 </table>
 

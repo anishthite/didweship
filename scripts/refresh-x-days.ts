@@ -54,7 +54,7 @@ type DataFile = {
   user_id: string;
   handle: string;
   /** IANA tz used to bucket `days[]`. Stamped by this script so the runtime
-   *  can refuse to render if the consumer's tz disagrees (F10). */
+   *  can refuse to render if the consumer's tz disagrees. */
   bucketed_tz: string;
   /** Newest tweet ID ever processed — feeds `since_id` on the next run so
    *  each tweet is fetched (and billed) exactly once. "" until first seen. */
@@ -587,7 +587,7 @@ async function processUser(target: { slug: string; handle: string }): Promise<vo
 
   // Never advance last_tweet_id unless the fetch completed fully (it threw
   // otherwise) AND we actually saw posts. Empty since_id fetches keep the
-  // old cursor — correct, there's nothing newer.
+  // old since_id — correct, there's nothing newer.
   const lastTweetId = result.newestId || existing.last_tweet_id;
 
   if (!fetch.fullBackfill && mergedDays.length < existing.days.length) {

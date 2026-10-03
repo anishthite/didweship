@@ -46,7 +46,7 @@ Out of scope (deferred):
 └────────────────────────────────────────────────────────────────┘
 ```
 
-One upstream fetch (GitHub GraphQL) cached at the Next.js fetch layer for 1 hour; X day-counts are imported from a bundled JSON file refreshed daily by `.github/workflows/refresh-x-days.yml`. Streak math runs in-memory each SSR. The page itself is ISR (`export const revalidate = 3600`) so static visitors hit a CDN edge cache and rehydrate at most once per hour.
+One upstream fetch (GitHub GraphQL) cached at the Next.js fetch layer for 1 hour; X day-counts are imported from a bundled JSON file refreshed hourly by `.github/workflows/refresh-x-days.yml`. Streak math runs in-memory each SSR. The page itself is ISR (`export const revalidate = 3600`) so static visitors hit a CDN edge cache and rehydrate at most once per hour.
 
 > Supersedes 2026-05-23 plan (Mac ingestor + Turso + pi-chrome). See `implementation-notes/2026-05-28-stateless-refactor.html` for the decision log.
 
