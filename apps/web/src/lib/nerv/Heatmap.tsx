@@ -5,7 +5,7 @@ import { intensity, toWeeksGrid } from "@/lib/heatmap";
  * Vertical heatmap, reverse-chronological.
  *   - Day-of-week initials along the top.
  *   - Month tick labels along the left (only when a new month begins).
- *   - Each cell shows a styled tooltip on hover: "YYYY-MM-DD · N".
+ *   - Each cell shows a styled tooltip on hover: "YYYY-MM-DD · N unit".
  */
 
 const CELL_PX = 14;
