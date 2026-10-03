@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spec — x-api-migration</title>
+<meta name="task" content="Replace socialdata.tools with official X API v2 in refresh-x-days; hourly cadence; originals-only">
+<meta name="date-started" content="2026-10-02">
+<meta name="date-updated" content="2026-10-02">
+<meta name="status" content="ready-for-review">
+<meta name="blast-radius" content="medium">
+<meta name="tags" content="x-api, refresh-script, github-actions, pricing, data-pipeline">
+<meta name="related" content="2026-05-29-socialdata-migration.html,2026-07-21-anish-x-backfill.html,2026-07-21-refresh-action-stale-sha.html">
+<style>
+  body { font: 14px/1.45 -apple-system, system-ui, sans-serif; max-width: 880px; margin: 1.5rem auto; padding: 0 1rem; color: #111; }
+  h1 { font-size: 20px; margin: 0 0 .25rem; }
+  h2 { font-size: 15px; margin: 1.4rem 0 .4rem; border-bottom: 1px solid #ddd; padding-bottom: .2rem; }
+  h3 { font-size: 13px; margin: 1rem 0 .3rem; color: #444; text-transform: uppercase; letter-spacing: .04em; }
+  table { border-collapse: collapse; width: 100%; margin: .4rem 0 .8rem; }
+  th, td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: #f6f6f6; font-weight: 600; }
+  code, pre { font-family: ui-monospace, Menlo, monospace; }
+  code { background: #f1f1f1; padding: 1px 4px; border-radius: 3px; font-size: 12.5px; }
+  pre { background: #f6f6f6; padding: .55rem .7rem; border-radius: 4px; overflow-x: auto; font-size: 12.5px; line-height: 1.4; }
+  ul, ol { margin: .3rem 0 .8rem 1.2rem; padding: 0; }
+  li { margin: .15rem 0; }
+  .q { border-left: 3px solid #b85c00; background: #fff8ee; padding: .4rem .7rem; margin: .4rem 0; }
+  .q .id { color: #b85c00; font-weight: 700; }
+  .q.resolved { border-left-color: #2a7a2a; background: #f1faf1; }
+  .q.resolved .id { color: #2a7a2a; }
+  .blast-low { color: #2a7a2a; } .blast-med { color: #b85c00; } .blast-high { color: #b00020; font-weight: 600; }
+  .meta { color: #555; font-size: 12.5px; margin-bottom: .8rem; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 2px 14px; font-size: 13px; margin: .4rem 0 1rem; }
+  .kv b { color: #444; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>X data source: socialdata.tools → official X API v2</h1>
+<p class="meta">
+  <code>x-api-migration</code> · worktree <code>~/workspace/commiter</code> · 2026-10-02 · status <b>ready-for-review</b> · blast <span class="blast-med">medium</span>
+</p>
+
+<h2>Summary</h2>
+<div class="kv">
+  <b>Goal</b><div>X day-counts come from the official X API v2, refreshed hourly instead of 2×/day.</div>
+  <b>Source</b><div><code>GET api.x.com/2/users/:id/tweets</code> (+ <code>/2/users/by/username/:h</code> lookup).</div>
+  <b>Surface</b><div><code>scripts/refresh-x-days.ts</code> + <code>.github/workflows/refresh-x-days.yml</code> only; app render path untouched.</div>
+  <b>Schema</b><div><code>x-days-by-slug.json</code> gains optional <code>last_tweet_id: string</code> per slug.</div>
+  <b>Cost</b><div>Pay-per-use ~$0.005/post returned → ~$1–3/mo (2 users, hourly). Was ~$0.03/mo on socialdata.</div>
+  <b>Secrets</b><div><code>X_BEARER_TOKEN</code> replaces <code>SOCIALDATA_API_KEY</code> (Actions secret; runtime never reads it).</div>
+  <b>Blast</b><div><span class="blast-med">medium</span> — workflow fails (safe no-op) until the new secret exists (R-001).</div>
+  <b>Open Qs</b><div>0.</div>
+</div>
+
+<h2>API contract</h2>
+<h3>Lookup (cached in JSON; re-run only on handle change)</h3>
+<pre>GET /2/users/by/username/{handle}
+Authorization: Bearer $X_BEARER_TOKEN          // app-only
+→ { "data": { "id": "...", "username": "..." } }   // $0.010/user</pre>
+<h3>Timeline (paginated)</h3>
+<pre>GET /2/users/{id}/tweets
+  ?max_results=100
+  &tweet.fields=created_at
+  &exclude=retweets,replies       // originals only (D-002)
+  &since_id={last_tweet_id}       // mode A: steady state (D-001)
+  &start_time={YYYY-MM-DD}T00:00:00Z  // mode B: one-time migration/backfill window
+  &pagination_token={meta.next_token}
+→ { "data": [{ "id", "created_at" }], "meta": { "next_token"?, "newest_id" } }</pre>
+<p>3200-most-recent ceiling per user; <code>meta.newest_id</code> from page 1 is the next <code>since_id</code>. 402 = out of credits (non-retryable, loud error).</p>
+
+<h2>Algorithm</h2>
+<ol>
+  <li>Load roster from <code>users.json</code>; per slug, load existing data.</li>
+  <li>Resolve <code>user_id</code> (cached; else lookup).</li>
+  <li>Mode pick: <code>last_tweet_id</code> present → since_id; else <code>start_time = max(days) − 2d</code> (or <code>BACKFILL_SINCE</code> on empty days[]).</li>
+  <li>Fetch pages; bucket each <code>created_at</code> via <code>Intl.DateTimeFormat("en-CA", {timeZone: NERV_TZ})</code> (matches <code>streak.ts dateKey()</code>).</li>
+  <li>Merge: since_id mode → additive (<code>count += fresh</code>); start_time mode → replace dates ≥ since, never touch older.</li>
+  <li>Store <code>last_tweet_id = meta.newest_id</code> (only on fully-completed fetch with posts seen).</li>
+  <li>Refuse commit if merged days[] shrinks; atomic write via tmp+rename; per-user failure isolation (all-fail → exit 1).</li>
+</ol>
+
+<h2>Files</h2>
+<table>
+  <tr><th>Path</th><th>Kind</th><th>Delta</th></tr>
+  <tr><td><code>scripts/refresh-x-days.ts</code></td><td>rewrite</td><td>socialdata search+cursor+window-sharding → X API timeline+since_id; −230 LOC net.</td></tr>
+  <tr><td><code>.github/workflows/refresh-x-days.yml</code></td><td>touch</td><td>Cron <code>0 9,21</code> → <code>7 * * * *</code>; secret swap; drop <code>LATEST_ONLY</code>.</td></tr>
+  <tr><td><code>.env.example</code></td><td>touch</td><td><code>SOCIALDATA_API_KEY</code> section → <code>X_BEARER_TOKEN</code>.</td></tr>
+  <tr><td><code>PLAN.md</code></td><td>touch</td><td>§3 X section rewritten (hourly, endpoints, cost); L-003 marked done; env table row.</td></tr>
+  <tr><td><code>README.md</code></td><td>touch</td><td>Actions secret line: <code>SOCIALDATA_API_KEY</code> → <code>X_BEARER_TOKEN</code>.</td></tr>
+</table>
+
+<h2>Decisions</h2>
+<table>
+  <tr><th>ID</th><th>Choice · Rationale</th></tr>
+  <tr><td>D-001</td><td><code>since_id</code> incremental for steady state over repeating the 2-day <code>start_time</code> overlap. Per-post billing re-bills overlap re-reads; since_id bills each post once.</td></tr>
+  <tr><td>D-002</td><td><code>exclude=retweets,replies</code> — "shipped" = original posts only. User decision; changes semantics vs socialdata <code>from:</code> search (which counted RTs).</td></tr>
+  <tr><td>D-003</td><td>Hourly cron (<code>7 * * * *</code>). User decision; billing is per-post so quiet hours cost ~$0; rate limit (~5 req/15min/app) fits 2 users trivially.</td></tr>
+  <tr><td>D-004</td><td>Keep commit-back-to-git flow unchanged. Render path stays bundled-JSON; zero app changes; Vercel rebuild per data commit as before.</td></tr>
+  <tr><td>D-005</td><td>No re-backfill at migration. Existing socialdata-built days kept; one <code>start_time</code> overlap fetch bootstraps <code>last_tweet_id</code> per user. Saves ~$30+ of pointless re-reads.</td></tr>
+  <tr><td>D-006</td><td>Delete <code>splitWindows</code>/<code>inWindow</code>/<code>mapPool</code> sharding. Timeline paginates via <code>next_token</code>; backfill is a one-time-per-user path, sequential is fine.</td></tr>
+  <tr><td>D-007</td><td>Drop <code>LATEST_ONLY</code> env mode. since_id subsumes it at equal-or-lower cost.</td></tr>
+</table>
+
+<h2>Deviations</h2>
+<p><em>None.</em></p>
+
+<h2>Tradeoffs</h2>
+<table>
+  <tr><th>ID</th><th>Picked over Rejected · Reason</th></tr>
+  <tr><td>T-001</td><td>Official X API (~$1–3/mo) over socialdata.tools (~$0.03/mo). Real-time freshness + no third-party cache lag/quota-trimming; user picked quality over cost explicitly.</td></tr>
+  <tr><td>T-002</td><td>Additive merge (since_id mode) over replace-window. API only returns strictly-new posts there; deleted posts keep their count — accepted noise for a binary ship signal.</td></tr>
+  <tr><td>T-003</td><td>Clean swap over keeping a socialdata fallback flag. Git history is the rollback; a second live code path is dead weight.</td></tr>
+  <tr><td>T-004</td><td><code>api.x.com</code> over <code>api.twitter.com</code>. Same service; canonical host.</td></tr>
+</table>
+
+<h2>Assumptions</h2>
+<ul>
+  <li>A-001 · Pay-per-use bills per post <em>returned</em>; empty since_id results ≈ $0. If there's a per-request floor: hourly cadence cost rises (~$3.50/mo at $0.005/call flat) — still trivial.</li>
+  <li>A-002 · User timeline rate limit at the user's tier ≥ 48 req/day. Docs say ~5 req/15min/app on low tiers → 480/day, 10× headroom.</li>
+  <li>A-003 · Existing socialdata day-counts are historically accurate enough to keep. If wrong: clear a slug's <code>days[]</code> + <code>last_tweet_id</code> to trigger a paid re-backfill (~$15/user worst case at 3200-post ceiling).</li>
+</ul>
+
+<h2>Reversibility</h2>
+<p>R-001 · <span class="blast-med">medium</span>. Until <code>X_BEARER_TOKEN</code> is set in Actions secrets, the workflow exits 2 at the refresh step — no commit, old data persists, no corruption. Full revert: <code>git checkout 5bac392 -- scripts/refresh-x-days.ts .github/workflows/refresh-x-days.yml</code> + keep <code>SOCIALDATA_API_KEY</code> secret. The <code>last_tweet_id</code> JSON field is ignored by the old script (loose parse), so the data file is compatible both directions.</p>
+
+<h2>Followups</h2>
+<ul>
+  <li>L-001 · Roster past ~10 users → revisit sequential loop vs timeline rate limit.</li>
+  <li>L-002 · KV-backed runtime read (Cloudflare/Vercel KV) would remove the Vercel-rebuild-per-commit ceiling on freshness; PLAN.md L-003 tracks the remainder.</li>
+  <li>L-003 · Set a spending cap/alert in the X developer portal; 402s fail loud but silence costs freshness.</li>
+</ul>
+
+<h2>Definition of done</h2>
+<ul>
+  <li><code>SELF_TEST=1 pnpm tsx scripts/refresh-x-days.ts</code> passes (merge modes + mode-picker). ✔</li>
+  <li>Workflow references <code>X_BEARER_TOKEN</code>, cron <code>7 * * * *</code>, no <code>LATEST_ONLY</code>. ✔</li>
+  <li>Docs (.env.example, PLAN.md, README.md) name the new secret + cadence. ✔</li>
+  <li>Manual smoke: user adds <code>X_BEARER_TOKEN</code> to Actions secrets, runs <code>workflow_dispatch</code>, confirms <code>last_tweet_id</code> lands in <code>x-days-by-slug.json</code> and today's count matches reality. <b>Pending — needs the secret.</b></li>
+</ul>
+
+</body>
+</html>

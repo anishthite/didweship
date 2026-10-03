@@ -65,5 +65,5 @@ Set Vercel runtime env:
 
 Set GitHub Actions secrets:
 
-- `SOCIALDATA_API_KEY` for X refresh
+- `X_BEARER_TOKEN` for X refresh (official X API v2, pay-per-use ≈ $1–3/mo)
 - `VERCEL_DEPLOY_HOOK_URL` optional deploy hook
