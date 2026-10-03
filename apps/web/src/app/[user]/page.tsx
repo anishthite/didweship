@@ -17,14 +17,15 @@ type Params = { user: string };
 
 function Last7({ snapshot }: { snapshot: Awaited<ReturnType<typeof getSnapshot>> }) {
   const gh = snapshot.channels.github.days;
-  const tw = snapshot.channels.twitter.days;
-  const xOffline = snapshot.channels.twitter.offline === true;
+  const social = [snapshot.channels.twitter, snapshot.channels.tiktok].filter(
+    (channel) => channel.offline !== true
+  );
   const n = gh.length;
   const cells = [] as { date: string; shipped: boolean }[];
   for (let i = Math.max(0, n - 7); i < n; i++) {
-    const g = (gh[i]?.count ?? 0) > 0;
-    const t = (tw[i]?.count ?? 0) > 0;
-    cells.push({ date: gh[i]!.date, shipped: xOffline ? g : g && t });
+    const githubShipped = (gh[i]?.count ?? 0) > 0;
+    const socialShipped = social.some((channel) => (channel.days[i]?.count ?? 0) > 0);
+    cells.push({ date: gh[i]!.date, shipped: githubShipped && (social.length === 0 || socialShipped) });
   }
   return (
     <div className="flex items-center gap-1" aria-label="last 7 days">
@@ -64,9 +65,12 @@ export default async function UserPage({
   }
 
   const ghToday = snapshot?.channels.github.today_count ?? 0;
-  const xToday = snapshot?.channels.twitter.today_count ?? 0;
-  const xOffline = snapshot?.channels.twitter.offline === true;
-  const shipped = xOffline ? ghToday > 0 : ghToday > 0 && xToday > 0;
+  const showX = snapshot?.channels.twitter.offline !== true;
+  const showTiktok = snapshot?.channels.tiktok.offline !== true;
+  const socialToday =
+    (showX ? snapshot?.channels.twitter.today_count ?? 0 : 0) +
+    (showTiktok ? snapshot?.channels.tiktok.today_count ?? 0 : 0);
+  const shipped = ghToday > 0 && (!(showX || showTiktok) || socialToday > 0);
   const combinedCurrent = snapshot?.combined.streak_current ?? 0;
   const displayName = userCfg?.displayName ?? slug;
 
@@ -140,27 +144,15 @@ export default async function UserPage({
               </div>
             </header>
 
-            <div className={xOffline ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
-              <MagiPanel
-                label="GITHUB"
-                unit="commits"
-                data={snapshot.channels.github}
-              />
-              {!xOffline && (
-                <MagiPanel
-                  label="X"
-                  unit="tweets"
-                  data={snapshot.channels.twitter}
-                />
-              )}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <MagiPanel label="GITHUB" unit="commits" data={snapshot.channels.github} />
+              {showX && <MagiPanel label="X" unit="tweets" data={snapshot.channels.twitter} />}
+              {showTiktok && <MagiPanel label="TIKTOK" unit="videos" data={snapshot.channels.tiktok} />}
             </div>
 
-            {xOffline && (
+            {!showX && !showTiktok && (
               <p className="mt-3 text-[10px] uppercase tracking-widest text-nerv-text/60">
-                x panel hidden for {displayName} — refresh action needs to run for{" "}
-                <code className="text-nerv-text/80">
-                  apps/web/src/data/x-days-by-slug.json
-                </code>
+                social panels hidden for {displayName} — refresh data is unavailable
               </p>
             )}
 
