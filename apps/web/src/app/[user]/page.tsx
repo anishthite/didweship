@@ -140,7 +140,7 @@ export default async function UserPage({
               </div>
             </header>
 
-            <div className={xOffline ? "grid gap-6" : "grid gap-6 sm:grid-cols-2 sm:gap-8"}>
+            <div className={xOffline ? "grid gap-6" : "grid grid-cols-2 gap-4 sm:gap-8"}>
               <MagiPanel
                 label="GITHUB"
                 unit="commits"
