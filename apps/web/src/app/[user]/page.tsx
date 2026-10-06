@@ -129,21 +129,6 @@ export default async function UserPage({
                 {shipped ? "yes." : "no."}
               </h2>
 
-              <div className="mt-3 flex gap-3 text-[10px] uppercase tracking-widest text-nerv-text/60">
-                <a
-                  href={`https://github.com/${userCfg!.githubLogin}`}
-                  className="hover:text-nerv-amber focus:text-nerv-amber"
-                >
-                  github
-                </a>
-                <a
-                  href={`https://x.com/${userCfg!.xLogin}`}
-                  className="hover:text-nerv-amber focus:text-nerv-amber"
-                >
-                  x
-                </a>
-              </div>
-
               <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm sm:text-base font-mono lowercase">
                 <span className="text-nerv-text/90">
                   <span className="text-nerv-amber text-xl sm:text-2xl tabular-nums">
@@ -160,12 +145,14 @@ export default async function UserPage({
                 label="GITHUB"
                 unit="commits"
                 data={snapshot.channels.github}
+                href={`https://github.com/${userCfg!.githubLogin}`}
               />
               {!xOffline && (
                 <MagiPanel
                   label="X"
                   unit="tweets"
                   data={snapshot.channels.twitter}
+                  href={`https://x.com/${userCfg!.xLogin}`}
                 />
               )}
             </div>
