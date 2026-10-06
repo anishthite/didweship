@@ -140,17 +140,19 @@ export default async function UserPage({
               </div>
             </header>
 
-            <div className={xOffline ? "grid gap-6" : "grid gap-6 sm:grid-cols-2 sm:gap-8"}>
+            <div className={xOffline ? "grid gap-6" : "grid grid-cols-2 gap-4 sm:gap-8"}>
               <MagiPanel
                 label="GITHUB"
                 unit="commits"
                 data={snapshot.channels.github}
+                href={`https://github.com/${userCfg!.githubLogin}`}
               />
               {!xOffline && (
                 <MagiPanel
                   label="X"
                   unit="tweets"
                   data={snapshot.channels.twitter}
+                  href={`https://x.com/${userCfg!.xLogin}`}
                 />
               )}
             </div>

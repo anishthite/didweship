@@ -11,10 +11,12 @@ export function MagiPanel({
   label,
   unit,
   data,
+  href,
 }: {
   label: string;
   unit: string;
   data: ChannelSnapshot;
+  href?: string;
 }) {
   const today = data.today_count;
   const live = today > 0;
@@ -31,15 +33,33 @@ export function MagiPanel({
 
   return (
     <section className="min-w-0 py-2 sm:py-3">
-      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-4">
+      <div className="grid gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center sm:gap-x-4 sm:gap-y-0">
         <header className="flex items-center gap-2 text-nerv-orange">
-          {icon}
-          {label === "X" ? (
-            <span className="sr-only">X</span>
+          {href ? (
+            <a
+              href={href}
+              className="flex items-center gap-2 hover:text-nerv-amber focus:text-nerv-amber"
+            >
+              {icon}
+              {label === "X" ? (
+                <span className="sr-only">X</span>
+              ) : (
+                <span className="font-mono text-lg sm:text-xl uppercase tracking-[0.12em]">
+                  {label}
+                </span>
+              )}
+            </a>
           ) : (
-            <div className="font-mono text-lg sm:text-xl uppercase tracking-[0.12em]">
-              {label}
-            </div>
+            <>
+              {icon}
+              {label === "X" ? (
+                <span className="sr-only">X</span>
+              ) : (
+                <span className="font-mono text-lg sm:text-xl uppercase tracking-[0.12em]">
+                  {label}
+                </span>
+              )}
+            </>
           )}
         </header>
 
