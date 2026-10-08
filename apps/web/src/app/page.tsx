@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSnapshot } from "@/lib/snapshot";
+import { rankByStreak } from "@/lib/ranking";
 import type { Snapshot } from "@/lib/snapshot";
 import { MiniHeatmap } from "@/lib/nerv/MiniHeatmap";
 import { ThemeToggle } from "@/lib/nerv/ThemeToggle";
@@ -36,6 +37,7 @@ async function loadAll(): Promise<UserCardData[]> {
 
 export default async function SummaryPage() {
   const cards = await loadAll();
+  cards.sort(rankByStreak);
   const generated = cards.find((c) => c.snapshot)?.snapshot?.generated_at ?? "";
 
   return (
@@ -55,6 +57,9 @@ export default async function SummaryPage() {
         </div>
       </header>
 
+      <p className="mb-3 text-[10px] uppercase tracking-widest text-nerv-text/60">
+        ranked by current streak · highest first
+      </p>
       <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
         {cards.map((card) => (
           <UserCard key={card.user.slug} card={card} />
