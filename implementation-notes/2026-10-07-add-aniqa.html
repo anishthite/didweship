@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>2026-10-07 — Add Aniqa</title>
+<meta name="task" content="Add Aniqa from GitHub issue 16">
+<meta name="date-started" content="2026-10-07">
+<meta name="date-updated" content="2026-10-07">
+<meta name="status" content="ready-for-review">
+<meta name="blast-radius" content="low">
+<meta name="tags" content="roster,github-issues,x-refresh">
+<meta name="related" content="2026-07-21-self-serve-people.html">
+<style>body{font:14px/1.45 -apple-system,system-ui,sans-serif;max-width:880px;margin:1.5rem auto;padding:0 1rem;color:#111}h1{font-size:20px;margin:0 0 .25rem}h2{font-size:15px;margin:1.4rem 0 .4rem;border-bottom:1px solid #ddd;padding-bottom:.2rem}table{border-collapse:collapse;width:100%;margin:.4rem 0 .8rem}th,td{border:1px solid #ddd;padding:4px 8px;text-align:left;vertical-align:top}th{background:#f6f6f6;font-weight:600}code{font-family:ui-monospace,Menlo,monospace;background:#f1f1f1;padding:1px 4px;border-radius:3px;font-size:12.5px}.meta{color:#555;font-size:12.5px;margin-bottom:.8rem}.kv{display:grid;grid-template-columns:140px 1fr;gap:2px 14px;font-size:13px;margin:.4rem 0 1rem}.kv b{color:#444;font-weight:600}.blast-low{color:#2a7a2a}</style>
+</head>
+<body>
+<h1>Add Aniqa</h1>
+<p class="meta"><code>feat/add-aniqa</code> · worktree <code>/Users/anishthite/workspace/commiter</code> · 2026-10-07 · status <b>ready-for-review</b> · blast <span class="blast-low">low</span></p>
+<h2>Summary</h2>
+<div class="kv"><b>Goal</b><div>Add Aniqa from issue <code>#16</code>.</div><b>Source</b><div><code>@aniqatc</code> GitHub issue comment supplies <code>@aniqareja</code>.</div><b>Roster</b><div><code>aniqatc</code> on GitHub; <code>aniqareja</code> on X.</div><b>Refresh</b><div>Seed an empty X cache entry; hourly refresh performs the first backfill.</div><b>Open Qs</b><div>0.</div></div>
+<h2>Files</h2>
+<table><tr><th>Path</th><th>Kind</th><th>Delta</th></tr><tr><td><code>apps/web/src/config/users.json</code></td><td>touch</td><td>Add Aniqa's GitHub and X handles.</td></tr><tr><td><code>apps/web/src/data/x-days-by-slug.json</code></td><td>touch</td><td>Seed Aniqa's X refresh state.</td></tr></table>
+<h2>Decisions</h2>
+<table><tr><th>ID</th><th>Choice · Rationale</th></tr><tr><td>D-001</td><td>Use <code>aniqatc</code> as both slug and GitHub login. It is the issue author.</td></tr><tr><td>D-002</td><td>Seed an empty X cache entry. The refresh workflow owns first activity ingestion.</td></tr></table>
+<h2>Reversibility</h2>
+<p>R-001 · <span class="blast-low">low</span>. Remove the two roster/cache entries to remove Aniqa.</p>
+<h2>Definition of done</h2>
+<ul><li><code>pnpm tsx scripts/check-people.ts</code> passes.</li><li>Roster entry includes GitHub and X handles from issue <code>#16</code>.</li></ul>
+</body>
+</html>
