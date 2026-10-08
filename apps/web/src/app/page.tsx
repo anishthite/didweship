@@ -57,12 +57,9 @@ export default async function SummaryPage() {
         </div>
       </header>
 
-      <p className="mb-3 text-[10px] uppercase tracking-widest text-nerv-text/60">
-        ranked by current streak · highest first
-      </p>
-      <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
-        {cards.map((card) => (
-          <UserCard key={card.user.slug} card={card} />
+      <div className="grid grid-cols-1 gap-3 sm:gap-4">
+        {cards.map((card, index) => (
+          <UserCard key={card.user.slug} card={card} rank={index + 1} />
         ))}
       </div>
 
@@ -99,7 +96,7 @@ function isShipped(snapshot: Snapshot | null): boolean {
   return xOffline ? ghToday > 0 : ghToday > 0 && xToday > 0;
 }
 
-function UserCard({ card }: { card: UserCardData }) {
+function UserCard({ card, rank }: { card: UserCardData; rank: number }) {
   const { user, snapshot, error } = card;
   const shipped = isShipped(snapshot);
   const streak = snapshot?.combined.streak_current ?? 0;
@@ -128,6 +125,9 @@ function UserCard({ card }: { card: UserCardData }) {
     >
       <div className="flex items-baseline justify-between gap-2 mb-1">
         <span className="text-nerv-amber text-sm sm:text-base lowercase font-mono tracking-tight truncate">
+          <span aria-label={`Position ${rank}`} className="mr-2 text-xs tabular-nums text-nerv-text/50">
+            #{rank}
+          </span>
           {user.displayName}
         </span>
         <span className="text-[10px] uppercase tracking-widest text-nerv-text/50 shrink-0">

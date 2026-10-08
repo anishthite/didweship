@@ -13,4 +13,5 @@
 <h2>Tradeoffs</h2><table><tr><th>ID</th><th>Choice / rationale</th></tr><tr id="T-001"><td>T-001</td><td>Use a brief ordering label over numbered placements; ties remain visibly equal without inventing a ranking policy.</td></tr></table>
 <h2>Reversibility</h2><p id="R-001">R-001 · low: revert the comparator import, sort, and label; no persisted data changes.</p>
 <h2>Definition of done</h2><ul><li><code>pnpm tsx scripts/check-ranking.ts</code> passes.</li><li><code>pnpm typecheck</code> passes.</li><li>Browser shows streaks <code>3, 1, 1, 0, 0</code> in order at desktop and 390px mobile; no mobile overflow.</li><li>Desktop/mobile screenshots reviewed; only console error is the pre-existing missing <code>favicon.ico</code>.</li><li>Open PR with this plan and screenshot links.</li></ul>
+<h2>Layout revision</h2><table><tr><th>ID</th><th>Choice / rationale</th></tr><tr id="D-004"><td>D-004</td><td>Supersedes D-002 and T-001 for presentation: add small sequential position numbers, retain stable tie ordering, stack cards in one column at every viewport, and remove the ordering subheader per user request.</td></tr></table>
 </body></html>
