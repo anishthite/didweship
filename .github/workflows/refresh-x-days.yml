@@ -71,18 +71,10 @@ jobs:
             echo "committed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # F8b: author the bot commit as the repo owner's GitHub noreply
-          # address (not the generic noreply@github.com). The generic address
-          # maps to GitHub's catch-all `web-flow` user, which has no Vercel
-          # account linked → Vercel rejects the push-triggered deploy with
-          # "Git author web-flow must have access to the project on Vercel".
-          # The numeric-prefixed form `<id>+<login>@users.noreply.github.com`
-          # resolves to the actual user on GitHub, which IS linked to Vercel,
-          # so the push-triggered deploy is accepted.
-          # The deploy-hook step below remains as belt-and-braces in case
-          # Vercel's git integration is ever disconnected.
-          git config user.name "x-refresh-bot"
-          git config user.email "14373068+anishthite@users.noreply.github.com"
+          # Use GitHub Actions' bot identity; the deploy hook below does not
+          # depend on the commit author having Vercel access.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Do not autostash generated data across branch/schema changes: that
           # is how stale runs resurrect deleted x-days.*.json files as conflicts.
           git fetch origin "${GITHUB_REF_NAME}"
@@ -95,13 +87,9 @@ jobs:
           git push
           echo "committed=true" >> "$GITHUB_OUTPUT"
 
-      # F8: trigger Vercel via Deploy Hook instead of relying on Vercel's
-      # git-push auto-deploy. The bot's commit author ("x-refresh-bot" /
-      # noreply@github.com) maps to GitHub's catch-all `web-flow` user, which
-      # has no Vercel account linked, so Vercel's "deploy only commits from
-      # authors with project access" check refuses the push-triggered build.
-      # Deploy hooks bypass author attribution entirely — the hook URL itself
-      # is the auth. Create one at:
+      # F8: trigger Vercel via Deploy Hook rather than relying on a bot commit
+      # author having access to the Vercel project. The hook URL is the auth.
+      # Create one at:
       #   Vercel → Project → Settings → Git → Deploy Hooks → Create hook
       #   (branch: main, name: refresh-x-days-bot)
       # then store the URL as the `VERCEL_DEPLOY_HOOK_URL` repo secret.
