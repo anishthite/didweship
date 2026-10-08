@@ -1,5 +1,15 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import localFont from "next/font/local";
+
+const ioskeleyMono = localFont({
+  src: "./IoskeleyMono-Regular.woff2",
+  variable: "--font-ioskeley-mono",
+  display: "swap",
+  weight: "400",
+  style: "normal",
+  adjustFontFallback: false,
+});
 
 const title = "did we ship today?";
 const description = "Shipping tracker — GitHub + X heatmaps and streaks.";
@@ -43,7 +53,9 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
-      <body className="font-mono bg-nerv-bg text-nerv-text antialiased">
+      <body
+        className={`${ioskeleyMono.variable} font-mono bg-nerv-bg text-nerv-text antialiased`}
+      >
         {children}
       </body>
     </html>
