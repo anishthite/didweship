@@ -66,6 +66,7 @@ export default async function UserPage({
   const ghToday = snapshot?.channels.github.today_count ?? 0;
   const xToday = snapshot?.channels.twitter.today_count ?? 0;
   const xOffline = snapshot?.channels.twitter.offline === true;
+  const showX = Boolean(userCfg?.xLogin);
   const shipped = xOffline ? ghToday > 0 : ghToday > 0 && xToday > 0;
   const combinedCurrent = snapshot?.combined.streak_current ?? 0;
   const displayName = userCfg?.displayName ?? slug;
@@ -140,14 +141,14 @@ export default async function UserPage({
               </div>
             </header>
 
-            <div className={xOffline ? "grid gap-6" : "grid grid-cols-2 gap-4 sm:gap-8"}>
+            <div className={showX ? "grid grid-cols-2 gap-4 sm:gap-8" : "grid gap-6"}>
               <MagiPanel
                 label="GITHUB"
                 unit="commits"
                 data={snapshot.channels.github}
                 href={`https://github.com/${userCfg!.githubLogin}`}
               />
-              {!xOffline && (
+              {showX && (
                 <MagiPanel
                   label="X"
                   unit="tweets"
@@ -157,9 +158,9 @@ export default async function UserPage({
               )}
             </div>
 
-            {xOffline && (
+            {showX && xOffline && (
               <p className="mt-3 text-[10px] uppercase tracking-widest text-nerv-text/60">
-                x panel hidden for {displayName} — refresh action needs to run for{" "}
+                x activity unavailable for {displayName} — refresh action needs to run for {" "}
                 <code className="text-nerv-text/80">
                   apps/web/src/data/x-days-by-slug.json
                 </code>
