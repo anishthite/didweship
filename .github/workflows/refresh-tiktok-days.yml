@@ -1,0 +1,87 @@
+name: refresh-tiktok-days
+
+# Optional TikTok refresh. If no roster entry has tiktokLogin, the script exits
+# 0; once a roster entry opts in, token + open_id secrets are required.
+on:
+  schedule:
+    - cron: "30 9,21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-tiktok-days
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    # Manual dispatch must not expose TikTok secrets to non-default branch code.
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: sync branch tip
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          auth_remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch "$auth_remote" "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda  # v3.0.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: refresh tiktok-days
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKENS_JSON: ${{ secrets.TIKTOK_REFRESH_TOKENS_JSON }}
+          TIKTOK_ACCESS_TOKENS_JSON: ${{ secrets.TIKTOK_ACCESS_TOKENS_JSON }}
+          TIKTOK_OPEN_IDS_JSON: ${{ secrets.TIKTOK_OPEN_IDS_JSON }}
+        run: pnpm tsx scripts/refresh-tiktok-days.ts
+
+      - name: commit if changed
+        id: commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet apps/web/src/data/tiktok-days-by-slug.json; then
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          auth_remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config user.name "tiktok-refresh-bot"
+          git config user.email "14373068+anishthite@users.noreply.github.com"
+          git fetch "$auth_remote" "${GITHUB_REF_NAME}"
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse FETCH_HEAD)" ]; then
+            echo "Branch moved during refresh; rerun refresh-tiktok-days on the latest branch tip."
+            exit 1
+          fi
+          git add apps/web/src/data/tiktok-days-by-slug.json
+          git commit -m "data: refresh tiktok-days $(date -u +%Y-%m-%d)"
+          git push "$auth_remote" "HEAD:${GITHUB_REF_NAME}"
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+
+      - name: trigger vercel deploy
+        if: steps.commit.outputs.committed == 'true'
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
+            echo "VERCEL_DEPLOY_HOOK_URL secret not set; skipping deploy trigger."
+            exit 0
+          fi
+          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL" \
+            -o /dev/null \
+            -w "vercel deploy hook: HTTP %{http_code}\n"

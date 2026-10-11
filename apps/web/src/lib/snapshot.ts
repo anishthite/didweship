@@ -1,5 +1,6 @@
 import "server-only";
 import { fetchGithubDays } from "./github";
+import { fetchTiktokDays, TiktokFeedOfflineError } from "./tiktok";
 import { fetchTwitterDays, TwitterFeedOfflineError } from "./twitter";
 import {
   addDays,
@@ -14,7 +15,7 @@ import { USERS, getUserBySlug, type UserConfig } from "@/config/users";
 /**
  * Stateless snapshot composer.
  *
- * Fetches GitHub + Twitter in parallel (each cached 1h at the fetch
+ * Fetches GitHub + social sources in parallel (each cached 1h at the fetch
  * layer), runs the streak math in-memory, and returns the wire-compatible
  * `Snapshot` shape that `MagiPanel` and `Heatmap` already consume (D-006).
  *
@@ -48,10 +49,12 @@ export type Snapshot = {
     displayName: string;
     githubLogin: string;
     xLogin: string;
+    tiktokLogin?: string;
   };
   channels: {
     github: ChannelSnapshot;
     twitter: ChannelSnapshot;
+    tiktok: ChannelSnapshot;
   };
   combined: {
     streak_current: number;
@@ -116,18 +119,23 @@ export async function getSnapshot(arg: number | GetSnapshotOpts = 365): Promise<
   const today = dateKey(now, tz);
   const from = addDays(today, -(days - 1));
 
-  const [ghDays, twResult] = await Promise.all([
+  const [ghDays, twResult, ttResult] = await Promise.all([
     fetchGithubDays({ login: user.githubLogin, token: githubToken, from, to: today }),
     fetchTwitterDaysSafe(user.slug, user.xLogin, tz, from, today),
+    fetchTiktokDaysSafe(user.slug, user.tiktokLogin ?? "", tz, from, today),
   ]);
 
   const todayIndex = ghDays.length - 1;
   const ghStreak = computeStreak(ghDays, { today_index: todayIndex, today_pending: true });
   const twStreak = computeStreak(twResult.days, { today_index: todayIndex, today_pending: true });
+  const ttStreak = computeStreak(ttResult.days, { today_index: todayIndex, today_pending: true });
 
-  const combinedDays = twResult.offline
-    ? ghDays
-    : combineDays(ghDays, twResult.days, "and");
+  let socialDays: Day[] | null = null;
+  for (const result of [twResult, ttResult]) {
+    if (result.offline) continue;
+    socialDays = socialDays ? combineDays(socialDays, result.days, "or") : result.days;
+  }
+  const combinedDays = socialDays ? combineDays(ghDays, socialDays, "and") : ghDays;
   const combinedStreak = computeStreak(combinedDays, { today_index: todayIndex, today_pending: true });
 
   return {
@@ -139,6 +147,7 @@ export async function getSnapshot(arg: number | GetSnapshotOpts = 365): Promise<
       displayName: user.displayName,
       githubLogin: user.githubLogin,
       xLogin: user.xLogin,
+      ...(user.tiktokLogin ? { tiktokLogin: user.tiktokLogin } : {}),
     },
     channels: {
       github: {
@@ -154,16 +163,24 @@ export async function getSnapshot(arg: number | GetSnapshotOpts = 365): Promise<
         today_count: twStreak.today_count,
         ...(twResult.offline ? { offline: true } : {}),
       },
+      tiktok: {
+        days: ttResult.days,
+        streak_current: ttStreak.current,
+        streak_longest: ttStreak.longest,
+        today_count: ttStreak.today_count,
+        ...(ttResult.offline ? { offline: true } : {}),
+      },
     },
     combined: {
       streak_current: combinedStreak.current,
       streak_longest: combinedStreak.longest,
-      mode: twResult.offline ? "or" : "and",
+      mode: socialDays ? "and" : "or",
     },
   };
 }
 
 type TwitterFetchResult = { days: Day[]; offline: boolean };
+type TiktokFetchResult = { days: Day[]; offline: boolean };
 
 async function fetchTwitterDaysSafe(
   slug: string,
@@ -189,6 +206,31 @@ async function fetchTwitterDaysSafe(
       return { days: fillMissingDays([], from, to), offline: true };
     }
     console.warn(`[snapshot] Twitter fetch threw for slug=${slug} — treating as offline:`, err);
+    return { days: fillMissingDays([], from, to), offline: true };
+  }
+}
+
+async function fetchTiktokDaysSafe(
+  slug: string,
+  login: string,
+  tz: string,
+  from: string,
+  to: string
+): Promise<TiktokFetchResult> {
+  if (!login) {
+    return { days: fillMissingDays([], from, to), offline: true };
+  }
+  try {
+    const days = await fetchTiktokDays({ slug, login, tz, from, to });
+    return { days, offline: false };
+  } catch (err) {
+    if (err instanceof TiktokFeedOfflineError) {
+      console.warn(
+        `[snapshot] TikTok feed offline for slug=${slug}; attempts=${JSON.stringify(err.attempts)}`
+      );
+      return { days: fillMissingDays([], from, to), offline: true };
+    }
+    console.warn(`[snapshot] TikTok fetch threw for slug=${slug} — treating as offline:`, err);
     return { days: fillMissingDays([], from, to), offline: true };
   }
 }

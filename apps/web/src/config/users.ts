@@ -5,6 +5,7 @@ export type UserConfig = {
   displayName: string;
   githubLogin: string;
   xLogin: string;
+  tiktokLogin?: string;
 };
 
 const data = usersJson as { users: UserConfig[] };

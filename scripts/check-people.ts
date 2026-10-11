@@ -4,12 +4,14 @@ import { readFileSync } from "node:fs";
 
 const usersPath = "apps/web/src/config/users.json";
 const xPath = "apps/web/src/data/x-days-by-slug.json";
+const tiktokPath = "apps/web/src/data/tiktok-days-by-slug.json";
 const issueTemplatePath = ".github/ISSUE_TEMPLATE/add-person.yml";
 
 const users = JSON.parse(readFileSync(usersPath, "utf8")) as {
-  users: Array<{ slug: string; displayName: string; githubLogin: string; xLogin: string }>;
+  users: Array<{ slug: string; displayName: string; githubLogin: string; xLogin: string; tiktokLogin?: string }>;
 };
 const xDays = JSON.parse(readFileSync(xPath, "utf8")) as Record<string, { days?: unknown }>;
+const tiktokDays = JSON.parse(readFileSync(tiktokPath, "utf8")) as Record<string, { days?: unknown }>;
 const issueTemplate = readFileSync(issueTemplatePath, "utf8");
 
 assert.ok(Array.isArray(users.users));
@@ -18,6 +20,7 @@ assert.ok(users.users.length > 0);
 const slugs = new Set<string>();
 const gh = new Set<string>();
 const x = new Set<string>();
+const tiktok = new Set<string>();
 for (const u of users.users) {
   assert.match(u.slug, /^[a-z0-9-]+$/);
   assert.ok(u.displayName.trim());
@@ -30,12 +33,21 @@ for (const u of users.users) {
   gh.add(u.githubLogin.toLowerCase());
   x.add(u.xLogin.toLowerCase());
 
+  if (u.tiktokLogin?.trim()) {
+    const login = u.tiktokLogin.toLowerCase();
+    assert.equal(tiktok.has(login), false, `duplicate tiktok ${u.tiktokLogin}`);
+    tiktok.add(login);
+  }
+
   // Existing tracked people should still have data after the one-file migration.
   assert.ok(xDays[u.slug], `missing x-days data for ${u.slug}`);
   assert.ok(Array.isArray(xDays[u.slug]?.days), `invalid x-days days[] for ${u.slug}`);
+  if (tiktokDays[u.slug]) {
+    assert.ok(Array.isArray(tiktokDays[u.slug]?.days), `invalid tiktok-days days[] for ${u.slug}`);
+  }
 }
 
-for (const field of ["display_name", "github_login", "x_login", "context"]) {
+for (const field of ["display_name", "github_login", "x_login", "tiktok_login", "context"]) {
   assert.match(issueTemplate, new RegExp(`id: ${field}`));
 }
 assert.doesNotMatch(issueTemplate, /id: request_for/);
