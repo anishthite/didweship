@@ -76,7 +76,7 @@ export default async function UserPage({
   const displayName = userCfg?.displayName ?? slug;
 
   return (
-    <main className="min-h-screen px-4 py-8 sm:px-6 sm:py-12 max-w-6xl mx-auto">
+    <main className="min-h-screen px-4 py-8 sm:px-6 sm:py-12 max-w-7xl mx-auto">
       {/* Nav: back to summary + sibling-user quick links. */}
       {/* py-2 -my-2 expands the tap target to ~44px without disturbing the */}
       {/* visual rhythm; aria-current makes the active state non-color-only */}
