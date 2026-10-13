@@ -1,7 +1,7 @@
 name: refresh-tiktok-days
 
 # Optional TikTok refresh. If no roster entry has tiktokLogin, the script exits
-# 0; otherwise it reads public profile posts through Apify.
+# 0; otherwise it reads public profile posts from Apify through Monid.
 on:
   schedule:
     - cron: "30 9,21 * * *"
@@ -42,10 +42,15 @@ jobs:
       - name: pnpm install
         run: pnpm install --frozen-lockfile
 
+      - name: install Monid
+        run: npm install --global @monid-ai/cli@0.1.7
+
       - name: refresh tiktok-days
         env:
-          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
-        run: pnpm tsx scripts/refresh-tiktok-days.ts
+          MONID_API_KEY: ${{ secrets.MONID_API_KEY }}
+        run: |
+          monid keys add -k "$MONID_API_KEY" -l main
+          pnpm tsx scripts/refresh-tiktok-days.ts
 
       - name: commit if changed
         id: commit
