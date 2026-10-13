@@ -1,7 +1,7 @@
 import "server-only";
 import { fetchGithubDays } from "./github";
-import { fetchTiktokDays, TiktokFeedOfflineError } from "./tiktok";
-import { fetchTwitterDays, TwitterFeedOfflineError } from "./twitter";
+import { fetchTiktokDays, getTiktokRefreshAt, TiktokFeedOfflineError } from "./tiktok";
+import { fetchTwitterDays, getTwitterRefreshAt, TwitterFeedOfflineError } from "./twitter";
 import {
   addDays,
   combineDays,
@@ -30,6 +30,8 @@ export type ChannelSnapshot = {
   streak_current: number;
   streak_longest: number;
   today_count: number;
+  refreshed_at?: string;
+  refresh_interval_seconds: number;
   /**
    * True when this channel has no live data source wired up and all the
    * counts below are zero-fill placeholders. Consumers (page.tsx) use
@@ -155,12 +157,16 @@ export async function getSnapshot(arg: number | GetSnapshotOpts = 365): Promise<
         streak_current: ghStreak.current,
         streak_longest: ghStreak.longest,
         today_count: ghStreak.today_count,
+        refreshed_at: now.toISOString(),
+        refresh_interval_seconds: 3600,
       },
       twitter: {
         days: twResult.days,
         streak_current: twStreak.current,
         streak_longest: twStreak.longest,
         today_count: twStreak.today_count,
+        refreshed_at: getTwitterRefreshAt(user.slug),
+        refresh_interval_seconds: 3600,
         ...(twResult.offline ? { offline: true } : {}),
       },
       tiktok: {
@@ -168,6 +174,8 @@ export async function getSnapshot(arg: number | GetSnapshotOpts = 365): Promise<
         streak_current: ttStreak.current,
         streak_longest: ttStreak.longest,
         today_count: ttStreak.today_count,
+        refreshed_at: getTiktokRefreshAt(user.slug),
+        refresh_interval_seconds: 43_200,
         ...(ttResult.offline ? { offline: true } : {}),
       },
     },

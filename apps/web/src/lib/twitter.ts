@@ -21,6 +21,11 @@ type XDaysFile = {
 
 const X_DAYS_BY_SLUG = xDaysBySlug as Record<string, XDaysFile | undefined>;
 
+export function getTwitterRefreshAt(slug: string): string | undefined {
+  const value = X_DAYS_BY_SLUG[slug]?.generated_at;
+  return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : undefined;
+}
+
 // Per-slug latch so the legacy-file warning fires at most once per slug
 // per process, not once per request.
 const bucketedTzLegacyWarned = new Set<string>();

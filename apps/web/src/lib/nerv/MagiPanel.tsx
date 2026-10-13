@@ -1,6 +1,20 @@
 import type { ChannelSnapshot } from "../snapshot";
 import { Heatmap } from "./Heatmap";
 
+function RefreshStatus({ data }: { data: ChannelSnapshot }) {
+  const refreshed = data.refreshed_at ? new Date(data.refreshed_at) : null;
+  const refreshedMs = refreshed?.getTime() ?? NaN;
+  if (Number.isNaN(refreshedMs)) return <p className="mt-3 text-[9px] text-nerv-text/50">refresh status unavailable</p>;
+
+  const ageMinutes = Math.max(0, Math.floor((Date.now() - refreshedMs) / 60_000));
+  const remainingMinutes = Math.max(0, Math.ceil(data.refresh_interval_seconds / 60 - ageMinutes));
+  return (
+    <p className="mt-3 text-[9px] lowercase tracking-wide text-nerv-text/50">
+      refreshed {ageMinutes}m ago · refreshes in ~{remainingMinutes}m
+    </p>
+  );
+}
+
 /**
  * One channel panel. Borderless, on the same horizontal baseline as
  * everything else on the page. Stats sit on one row (streak | today |
@@ -114,8 +128,10 @@ export function MagiPanel({
         <Heatmap days={data.days} unit={unit} />
       </div>
 
+      <RefreshStatus data={data} />
+
       {/* Intensity legend — without it the color scale has no meaning. */}
-      <div className="mt-3 flex items-center justify-center gap-1 text-[9px] uppercase tracking-widest text-nerv-text/60">
+      <div className="mt-2 flex items-center justify-center gap-1 text-[9px] uppercase tracking-widest text-nerv-text/60">
         <span>less</span>
         {([0, 1, 2, 3, 4] as const).map((l) => (
           <span
