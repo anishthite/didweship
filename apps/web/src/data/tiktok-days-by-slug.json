@@ -1,1 +1,25 @@
-{}
+{
+  "subby": {
+    "generated_at": "2026-10-13T20:39:32.217Z",
+    "handle": "akiravbvrvl",
+    "bucketed_tz": "America/Los_Angeles",
+    "days": [
+      {
+        "date": "2026-10-09",
+        "count": 2
+      },
+      {
+        "date": "2026-10-10",
+        "count": 3
+      },
+      {
+        "date": "2026-10-11",
+        "count": 1
+      },
+      {
+        "date": "2026-10-12",
+        "count": 4
+      }
+    ]
+  }
+}
