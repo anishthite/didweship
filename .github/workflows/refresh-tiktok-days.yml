@@ -1,7 +1,7 @@
 name: refresh-tiktok-days
 
 # Optional TikTok refresh. If no roster entry has tiktokLogin, the script exits
-# 0; once a roster entry opts in, token + open_id secrets are required.
+# 0; otherwise it reads public profile posts through Apify.
 on:
   schedule:
     - cron: "30 9,21 * * *"
@@ -44,11 +44,7 @@ jobs:
 
       - name: refresh tiktok-days
         env:
-          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
-          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
-          TIKTOK_REFRESH_TOKENS_JSON: ${{ secrets.TIKTOK_REFRESH_TOKENS_JSON }}
-          TIKTOK_ACCESS_TOKENS_JSON: ${{ secrets.TIKTOK_ACCESS_TOKENS_JSON }}
-          TIKTOK_OPEN_IDS_JSON: ${{ secrets.TIKTOK_OPEN_IDS_JSON }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
         run: pnpm tsx scripts/refresh-tiktok-days.ts
 
       - name: commit if changed

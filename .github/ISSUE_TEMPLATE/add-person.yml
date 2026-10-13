@@ -40,7 +40,7 @@ body:
     id: tiktok_login
     attributes:
       label: TikTok username
-      description: Optional. Handle only, no @. Requires TikTok API token setup before it appears.
+      description: Optional. Handle only, no @. Requires the Apify refresh token before activity appears.
       placeholder: octocat
 
   - type: textarea

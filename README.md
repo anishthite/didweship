@@ -71,7 +71,7 @@ Deploys to Vercel.
 **GitHub Actions secrets:**
 
 - `X_BEARER_TOKEN` — X data refresh (official X API v2, pay-per-use ≈ $1–3/mo)
-- `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKENS_JSON`, `TIKTOK_OPEN_IDS_JSON` — TikTok refresh
+- `APIFY_TOKEN` — TikTok public-profile refresh via `apidojo/tiktok-profile-scraper`
 - `VERCEL_DEPLOY_HOOK_URL` — optional deploy hook after refresh
 
 ## More
