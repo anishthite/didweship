@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 type Day = { date: string; count: number };
 type DataFile = { generated_at: string; handle: string; bucketed_tz: string; days: Day[] };
 type Store = Record<string, DataFile>;
-type User = { slug: string; tiktokLogin?: string };
+type User = { slug: string; tiktokLogin?: string; tiktokLogins?: string[] };
 type ApifyPost = { id?: unknown; uploadedAt?: unknown; channel?: { username?: unknown } };
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -104,6 +104,12 @@ function countsForHandle(posts: ApifyPost[], handle: string): Day[] {
   return [...counts].map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function combineDays(dayLists: Day[][]): Day[] {
+  const counts = new Map<string, number>();
+  for (const days of dayLists) for (const day of days) counts.set(day.date, (counts.get(day.date) ?? 0) + day.count);
+  return [...counts].map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function mergeDays(existing: Day[], fresh: Day[]): Day[] {
   const merged = new Map(existing.filter(isDay).map((day) => [day.date, day.count]));
   const since = fresh[0]?.date;
@@ -112,21 +118,25 @@ function mergeDays(existing: Day[], fresh: Day[]): Day[] {
   return [...merged].map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function tiktokHandles(user: User): string[] {
+  const handles = user.tiktokLogins ?? (user.tiktokLogin ? [user.tiktokLogin] : []);
+  return [...new Set(handles.map((handle) => handle.trim().replace(/^@/, "")).filter(Boolean))];
+}
+
 async function main(): Promise<void> {
   if (process.env.SELF_TEST === "1") return selfTest();
-  const targets = (await loadUsers()).filter((user) => user.tiktokLogin?.trim());
-  if (!targets.length) return log("no users with tiktokLogin configured; nothing to refresh");
-  if (!token) die("APIFY_TOKEN is required when a tiktokLogin is configured");
+  const targets = (await loadUsers()).map((user) => ({ ...user, handles: tiktokHandles(user) })).filter((user) => user.handles.length);
+  if (!targets.length) return log("no users with TikTok handles configured; nothing to refresh");
+  if (!token) die("APIFY_TOKEN is required when TikTok handles are configured");
 
-  const posts = await fetchPosts(targets.map((user) => user.tiktokLogin!.trim().replace(/^@/, "")));
+  const posts = await fetchPosts(targets.flatMap((user) => user.handles));
   const store = await loadStore();
-  for (const { slug, tiktokLogin } of targets) {
-    const handle = tiktokLogin!.trim().replace(/^@/, "");
-    const fresh = countsForHandle(posts, handle);
-    if (!fresh.length) die(`Apify returned no valid posts for @${handle}`);
+  for (const { slug, handles } of targets) {
+    const fresh = combineDays(handles.map((handle) => countsForHandle(posts, handle)));
+    if (!fresh.length) die(`Apify returned no valid posts for ${handles.map((handle) => `@${handle}`).join(", ")}`);
     const existing = store[slug]?.days ?? [];
-    store[slug] = { generated_at: new Date().toISOString(), handle, bucketed_tz: tz, days: mergeDays(existing, fresh) };
-    log(`${slug}: ${fresh.length} days from ${posts.length} posts`);
+    store[slug] = { generated_at: new Date().toISOString(), handle: handles.join(","), bucketed_tz: tz, days: mergeDays(existing, fresh) };
+    log(`${slug}: ${fresh.length} days across ${handles.length} accounts from ${posts.length} posts`);
   }
   await saveStore(store);
 }
@@ -138,6 +148,7 @@ function selfTest(): void {
     { id: "one", uploadedAt: 1_752_000_000, channel: { username: "subby" } },
     { id: "two", uploadedAt: 1_752_000_000, channel: { username: "other" } },
   ], "subby"), [{ date: dateKey(1_752_000_000), count: 1 }]);
+  assert.deepEqual(combineDays([[{ date: "2026-01-01", count: 1 }], [{ date: "2026-01-01", count: 2 }]]), [{ date: "2026-01-01", count: 3 }]);
   assert.deepEqual(mergeDays([{ date: "2026-01-01", count: 1 }, { date: "2026-01-02", count: 1 }], [{ date: "2026-01-02", count: 2 }]), [{ date: "2026-01-01", count: 1 }, { date: "2026-01-02", count: 2 }]);
   console.log("tiktok refresh self-test ok");
 }

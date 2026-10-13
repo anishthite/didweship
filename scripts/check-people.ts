@@ -8,7 +8,8 @@ const tiktokPath = "apps/web/src/data/tiktok-days-by-slug.json";
 const issueTemplatePath = ".github/ISSUE_TEMPLATE/add-person.yml";
 
 const users = JSON.parse(readFileSync(usersPath, "utf8")) as {
-  users: Array<{ slug: string; displayName: string; githubLogin: string; xLogin: string; tiktokLogin?: string }>;
+  users: Array<{ slug: string; displayName: string; githubLogin: string; xLogin: string; tiktokLogin?: string; tiktokLogins?: string[] }>;
+
 };
 const xDays = JSON.parse(readFileSync(xPath, "utf8")) as Record<string, { days?: unknown }>;
 const tiktokDays = JSON.parse(readFileSync(tiktokPath, "utf8")) as Record<string, { days?: unknown }>;
@@ -33,10 +34,12 @@ for (const u of users.users) {
   gh.add(u.githubLogin.toLowerCase());
   x.add(u.xLogin.toLowerCase());
 
-  if (u.tiktokLogin?.trim()) {
-    const login = u.tiktokLogin.toLowerCase();
-    assert.equal(tiktok.has(login), false, `duplicate tiktok ${u.tiktokLogin}`);
-    tiktok.add(login);
+  const tiktokLogins = u.tiktokLogins ?? (u.tiktokLogin ? [u.tiktokLogin] : []);
+  for (const login of tiktokLogins) {
+    assert.ok(login.trim(), `empty tiktok login for ${u.slug}`);
+    const normalized = login.toLowerCase();
+    assert.equal(tiktok.has(normalized), false, `duplicate tiktok ${login}`);
+    tiktok.add(normalized);
   }
 
   // Existing tracked people should still have data after the one-file migration.
