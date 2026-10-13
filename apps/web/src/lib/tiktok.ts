@@ -12,6 +12,11 @@ type TiktokDaysFile = {
 };
 
 const TIKTOK_DAYS_BY_SLUG = tiktokDaysBySlug as Record<string, TiktokDaysFile | undefined>;
+
+export function getTiktokRefreshAt(slug: string): string | undefined {
+  const value = TIKTOK_DAYS_BY_SLUG[slug]?.generated_at;
+  return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : undefined;
+}
 const bucketedTzLegacyWarned = new Set<string>();
 
 export class TiktokFeedOfflineError extends Error {
