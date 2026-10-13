@@ -2,7 +2,7 @@ import "server-only";
 import { fillMissingDays, type Day } from "./streak";
 import tiktokDaysBySlug from "../data/tiktok-days-by-slug.json";
 
-/** TikTok source — bundled static JSON, refreshed by GitHub Actions. */
+/** TikTok source — bundled static JSON, refreshed from public Apify data. */
 
 type TiktokDaysFile = {
   days?: unknown;
