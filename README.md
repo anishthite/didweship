@@ -51,7 +51,7 @@ Edit `users.json` with handles only, no `@`:
   "displayName": "anish",
   "githubLogin": "anishthite",
   "xLogin": "anishthite",
-  "tiktokLogin": "anishthite"
+  "tiktokLogins": ["anishthite"]
 }
 ```
 
