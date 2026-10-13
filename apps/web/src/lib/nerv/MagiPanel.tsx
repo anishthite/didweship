@@ -33,7 +33,7 @@ export function MagiPanel({
 
   return (
     <section className="min-w-0 py-2 sm:py-3">
-      <div className="grid gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center sm:gap-x-4 sm:gap-y-0">
+      <div className="grid gap-y-2">
         <header className="flex items-center gap-2 text-nerv-orange">
           {href ? (
             <a
