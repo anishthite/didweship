@@ -2,9 +2,12 @@
 /** Refresh public TikTok activity from Apify's profile scraper. */
 
 import assert from "node:assert/strict";
-import { readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { execFile as execFileCallback } from "node:child_process";
+import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 type Day = { date: string; count: number };
 type DataFile = { generated_at: string; handle: string; bucketed_tz: string; days: Day[] };
@@ -15,8 +18,8 @@ type ApifyPost = { id?: unknown; uploadedAt?: unknown; channel?: { username?: un
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const usersPath = resolve(root, "apps/web/src/config/users.json");
 const dataPath = resolve(root, "apps/web/src/data/tiktok-days-by-slug.json");
-const token = process.env.APIFY_TOKEN?.trim() ?? "";
 const tz = process.env.NERV_TZ?.trim() || "America/Los_Angeles";
+const execFile = promisify(execFileCallback);
 const maxItems = 100;
 const actor = "apidojo~tiktok-profile-scraper";
 
@@ -77,18 +80,19 @@ async function saveStore(store: Store): Promise<void> {
 }
 
 async function fetchPosts(handles: string[]): Promise<ApifyPost[]> {
-  const response = await fetch(
-    `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ usernames: handles, maxItems }),
-    }
-  );
-  if (!response.ok) die(`Apify ${response.status}: ${(await response.text()).slice(0, 300)}`);
-  const body: unknown = await response.json();
-  if (!Array.isArray(body)) die("Apify returned a non-array dataset");
-  return body as ApifyPost[];
+  const dir = await mkdtemp(join(tmpdir(), "commiter-monid-"));
+  const output = join(dir, "posts.json");
+  try {
+    await execFile("monid", [
+      "run", "-p", "apify", "-e", `/${actor.replace("~", "/")}`,
+      "-i", JSON.stringify({ usernames: handles, maxItems }), "-w", "120", "-o", output,
+    ]);
+    const body: unknown = JSON.parse(await readFile(output, "utf8"));
+    if (!Array.isArray(body)) die("Monid returned a non-array Apify dataset");
+    return body as ApifyPost[];
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
 function countsForHandle(posts: ApifyPost[], handle: string): Day[] {
@@ -127,8 +131,6 @@ async function main(): Promise<void> {
   if (process.env.SELF_TEST === "1") return selfTest();
   const targets = (await loadUsers()).map((user) => ({ ...user, handles: tiktokHandles(user) })).filter((user) => user.handles.length);
   if (!targets.length) return log("no users with TikTok handles configured; nothing to refresh");
-  if (!token) die("APIFY_TOKEN is required when TikTok handles are configured");
-
   const posts = await fetchPosts(targets.flatMap((user) => user.handles));
   const store = await loadStore();
   for (const { slug, handles } of targets) {
