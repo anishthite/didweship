@@ -1193,11 +1193,11 @@
     ]
   },
   "aditya": {
-    "generated_at": "2026-10-05T23:59:37.696Z",
+    "generated_at": "2026-10-21T10:01:23.247Z",
     "user_id": "1471844548183658496",
     "handle": "adityayaps",
     "bucketed_tz": "America/Los_Angeles",
-    "last_tweet_id": "2103325962310197618",
+    "last_tweet_id": "2112777469531185543",
     "days": [
       {
         "date": "2024-01-06",
@@ -1594,6 +1594,10 @@
       {
         "date": "2026-09-24",
         "count": 1
+      },
+      {
+        "date": "2026-10-20",
+        "count": 2
       }
     ]
   },
