@@ -1602,11 +1602,11 @@
     ]
   },
   "aniqatc": {
-    "generated_at": "2026-10-19T23:32:56.901Z",
+    "generated_at": "2026-10-21T19:16:01.931Z",
     "user_id": "2107481081242865664",
     "handle": "aniqatc",
     "bucketed_tz": "America/Los_Angeles",
-    "last_tweet_id": "2112285181662888316",
+    "last_tweet_id": "2112948398412177554",
     "days": [
       {
         "date": "2026-10-06",
@@ -1651,6 +1651,10 @@
       {
         "date": "2026-10-19",
         "count": 2
+      },
+      {
+        "date": "2026-10-21",
+        "count": 1
       }
     ]
   },
