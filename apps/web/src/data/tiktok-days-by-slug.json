@@ -1,6 +1,6 @@
 {
   "subby": {
-    "generated_at": "2026-10-29T01:08:32.771Z",
+    "generated_at": "2026-10-29T16:19:24.910Z",
     "handle": "jenny.styles2,alice.brown271,akiravbvrvl,emily.smith526,hoodparody.official,jessiwnvrjz,jennixirhb3,daisy.brown25",
     "bucketed_tz": "America/Los_Angeles",
     "days": [
@@ -33,28 +33,16 @@
         "count": 1
       },
       {
-        "date": "2026-08-12",
-        "count": 2
-      },
-      {
-        "date": "2026-08-13",
-        "count": 1
-      },
-      {
-        "date": "2026-09-25",
-        "count": 2
-      },
-      {
         "date": "2026-09-26",
         "count": 2
       },
       {
         "date": "2026-09-28",
-        "count": 2
+        "count": 1
       },
       {
         "date": "2026-09-29",
-        "count": 3
+        "count": 1
       },
       {
         "date": "2026-10-01",
@@ -114,6 +102,10 @@
       },
       {
         "date": "2026-10-27",
+        "count": 1
+      },
+      {
+        "date": "2026-10-28",
         "count": 1
       }
     ]
