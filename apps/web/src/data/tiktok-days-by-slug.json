@@ -1,6 +1,6 @@
 {
   "subby": {
-    "generated_at": "2026-11-01T16:14:27.841Z",
+    "generated_at": "2026-11-02T00:58:03.532Z",
     "handle": "jenny.styles2,alice.brown271,akiravbvrvl,emily.smith526,hoodparody.official,jessiwnvrjz,jennixirhb3,daisy.brown25",
     "bucketed_tz": "America/Los_Angeles",
     "days": [
@@ -118,6 +118,10 @@
       },
       {
         "date": "2026-10-31",
+        "count": 1
+      },
+      {
+        "date": "2026-11-01",
         "count": 1
       }
     ]
