@@ -1634,11 +1634,11 @@
     ]
   },
   "aniqatc": {
-    "generated_at": "2026-11-04T17:05:26.949Z",
+    "generated_at": "2026-11-05T03:25:30.679Z",
     "user_id": "2107481081242865664",
     "handle": "aniqatc",
     "bucketed_tz": "America/Los_Angeles",
-    "last_tweet_id": "2117993356869697642",
+    "last_tweet_id": "2118160752028561869",
     "days": [
       {
         "date": "2026-10-06",
@@ -1722,16 +1722,16 @@
       },
       {
         "date": "2026-11-04",
-        "count": 1
+        "count": 2
       }
     ]
   },
   "anish": {
-    "generated_at": "2026-11-04T08:58:58.419Z",
+    "generated_at": "2026-11-05T03:25:30.770Z",
     "user_id": "814656123055775744",
     "handle": "anishthite",
     "bucketed_tz": "America/Los_Angeles",
-    "last_tweet_id": "2117874627188011130",
+    "last_tweet_id": "2118114447952883850",
     "days": [
       {
         "date": "2023-12-31",
@@ -4311,6 +4311,10 @@
       },
       {
         "date": "2026-11-03",
+        "count": 1
+      },
+      {
+        "date": "2026-11-04",
         "count": 1
       }
     ]
