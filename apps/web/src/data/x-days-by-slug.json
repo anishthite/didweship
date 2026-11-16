@@ -1787,11 +1787,11 @@
     ]
   },
   "anish": {
-    "generated_at": "2026-11-10T00:08:52.653Z",
+    "generated_at": "2026-11-16T20:18:18.409Z",
     "user_id": "814656123055775744",
     "handle": "anishthite",
     "bucketed_tz": "America/Los_Angeles",
-    "last_tweet_id": "2119901948338212953",
+    "last_tweet_id": "2122270451707834826",
     "days": [
       {
         "date": "2023-12-31",
@@ -4380,6 +4380,10 @@
       {
         "date": "2026-11-09",
         "count": 2
+      },
+      {
+        "date": "2026-11-16",
+        "count": 1
       }
     ]
   },
