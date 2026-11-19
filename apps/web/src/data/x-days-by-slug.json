@@ -4392,11 +4392,11 @@
     ]
   },
   "subby": {
-    "generated_at": "2026-11-03T20:53:50.085Z",
+    "generated_at": "2026-11-19T03:12:02.230Z",
     "user_id": "2849090419",
     "handle": "subby_tech",
     "bucketed_tz": "America/Los_Angeles",
-    "last_tweet_id": "2115619536624079164",
+    "last_tweet_id": "2123228209114423359",
     "days": [
       {
         "date": "2024-01-01",
@@ -6276,6 +6276,10 @@
       },
       {
         "date": "2026-10-28",
+        "count": 1
+      },
+      {
+        "date": "2026-11-18",
         "count": 1
       }
     ]
