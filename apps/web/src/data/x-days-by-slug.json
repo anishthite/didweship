@@ -1,10 +1,10 @@
 {
   "0w9": {
-    "generated_at": "2026-11-24T05:54:37.227Z",
+    "generated_at": "2026-11-24T17:29:35.392Z",
     "user_id": "1485246676071768068",
     "handle": "lennardeth",
     "bucketed_tz": "America/Los_Angeles",
-    "last_tweet_id": "2125032140182343937",
+    "last_tweet_id": "2125266636022386870",
     "days": [
       {
         "date": "2024-11-30",
@@ -1261,6 +1261,10 @@
       {
         "date": "2026-11-23",
         "count": 3
+      },
+      {
+        "date": "2026-11-24",
+        "count": 2
       }
     ]
   },
@@ -1674,11 +1678,11 @@
     ]
   },
   "aniqatc": {
-    "generated_at": "2026-11-23T21:13:05.253Z",
+    "generated_at": "2026-11-24T17:29:35.113Z",
     "user_id": "2107481081242865664",
     "handle": "aniqatc",
     "bucketed_tz": "America/Los_Angeles",
-    "last_tweet_id": "2124884422667505867",
+    "last_tweet_id": "2125208752609546372",
     "days": [
       {
         "date": "2026-10-06",
@@ -1822,6 +1826,10 @@
       },
       {
         "date": "2026-11-23",
+        "count": 1
+      },
+      {
+        "date": "2026-11-24",
         "count": 1
       }
     ]
